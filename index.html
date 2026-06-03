@@ -448,7 +448,7 @@ function renderList() {
   const list=document.getElementById('coord-list'); list.innerHTML='';
   points.forEach((p,i)=>{
     const div=document.createElement('div'); div.className='coord-card';
-    div.innerHTML=`<div class="coord-row"><div class="pt-badge">P${i+1}</div><div class="coord-inputs"><div class="coord-label-input"><span class="axis-label">X</span><input class="coord-input" type="text" inputmode="decimal" value="${p.x}" placeholder="0" onchange="updateVal(${p.id},'x',this.value)" oninput="updateVal(${p.id},'x',this.value)"></div><div class="coord-label-input"><span class="axis-label">Y</span><input class="coord-input" type="text" inputmode="decimal" value="${p.y}" placeholder="0" onchange="updateVal(${p.id},'y',this.value)" oninput="updateVal(${p.id},'y',this.value)"></div></div>${points.length>3?`<button class="del-btn" onclick="removePoint(${p.id})">×</button>`:`<div class="del-placeholder"></div>`}</div>`;
+    div.innerHTML=`<div class="coord-row"><div class="pt-badge">P${i+1}</div><div class="coord-inputs"><div class="coord-label-input"><span class="axis-label">X</span><input class="coord-input" type="text" inputmode="text" value="${p.x}" placeholder="0" onchange="updateVal(${p.id},'x',this.value)" oninput="updateVal(${p.id},'x',this.value)"></div><div class="coord-label-input"><span class="axis-label">Y</span><input class="coord-input" type="text" inputmode="text" value="${p.y}" placeholder="0" onchange="updateVal(${p.id},'y',this.value)" oninput="updateVal(${p.id},'y',this.value)"></div></div>${points.length>3?`<button class="del-btn" onclick="removePoint(${p.id})">×</button>`:`<div class="del-placeholder"></div>`}</div>`;
     list.appendChild(div);
   });
 }
