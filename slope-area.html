@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#f5f0e4">
+<title>法面積計算</title>
+<link href="https://fonts.googleapis.com/css2?family=Klee+One:wght@400;600&family=Noto+Sans+JP:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#f6f1e5;--paper2:#ede8d4;--paper3:#e4ddc6;
+  --ink:#111118;--ink2:#2a2a3a;--muted:#88806e;
+  --grid:rgba(170,158,138,0.45);--grid-d:rgba(140,128,108,0.7);
+  --red-rule:#c0392b;
+  --blue:#1a3a8a;--red-v:#b02020;--green:#1a6030;--orange:#a04600;
+  --cover:#5a3a1b;
+  --fh:'Klee One',cursive;--fu:'Noto Sans JP',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html{background:#a89878;min-height:100%;}
+body{
+  font-family:var(--fh);max-width:420px;margin:0 auto;min-height:100dvh;
+  background-color:var(--paper);
+  background-image:
+    linear-gradient(rgba(160,148,128,0.35) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(160,148,128,0.35) 1px,transparent 1px),
+    linear-gradient(rgba(160,148,128,0.12) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(160,148,128,0.12) 1px,transparent 1px);
+  background-size:44px 44px,44px 44px,11px 11px,11px 11px;
+  box-shadow:4px 0 24px rgba(0,0,0,0.35),-2px 0 10px rgba(0,0,0,0.15);
+}
+
+.spine{position:fixed;left:0;top:0;bottom:0;width:26px;
+  background:linear-gradient(90deg,#3a2010 0%,#5a3a1b 55%,#4a2e14 100%);
+  z-index:300;box-shadow:3px 0 8px rgba(0,0,0,0.4);
+  display:flex;align-items:center;justify-content:center;}
+.spine-txt{writing-mode:vertical-rl;text-orientation:mixed;
+  font-size:8px;letter-spacing:0.2em;color:rgba(255,255,255,0.5);
+  font-family:var(--fu);font-weight:500;white-space:nowrap;transform:rotate(180deg);}
+.content{margin-left:26px;}
+
+/* 表紙 */
+.cover{background:linear-gradient(160deg,#5a3a1b 0%,#7a5228 60%,#5a3a1b 100%);
+  padding:14px 14px 12px;border-bottom:3px double #3a2010;position:relative;}
+.cover::after{content:'';position:absolute;inset:4px;border:1px solid rgba(255,255,255,0.14);pointer-events:none;}
+.cover-ttl{font-size:17px;font-weight:600;color:#fff;letter-spacing:0.14em;margin-bottom:1px;text-shadow:1px 1px 4px rgba(0,0,0,0.5);}
+.cover-sub{font-size:9px;color:rgba(255,255,255,0.45);letter-spacing:0.2em;font-family:var(--fu);text-transform:uppercase;margin-bottom:10px;}
+.cover-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+.cf{background:rgba(0,0,0,0.18);border-radius:2px;padding:5px 8px;}
+.cf-lbl{font-size:9px;color:rgba(255,255,255,0.4);font-family:var(--fu);margin-bottom:2px;}
+.cf-inp{background:none;border:none;border-bottom:1px solid rgba(255,255,255,0.22);
+  color:#fff;font-family:var(--fh);font-size:13px;width:100%;padding:0 2px;}
+.cf-inp:focus{outline:none;border-bottom-color:rgba(255,255,255,0.7);}
+.cf-inp::placeholder{color:rgba(255,255,255,0.22);}
+
+/* 図解 */
+.diagram-section{padding:14px 14px 10px;border-bottom:2px solid var(--grid-d);}
+.diagram-ttl{font-size:11px;font-weight:600;color:var(--ink2);font-family:var(--fu);
+  letter-spacing:0.08em;margin-bottom:10px;}
+.diagram-wrap{display:flex;justify-content:center;margin-bottom:8px;}
+svg.diag{width:200px;height:120px;}
+
+/* テーブルヘッダー */
+.section-head{background:var(--paper3);border-top:1px solid var(--grid-d);border-bottom:2px solid var(--ink2);
+  padding:6px 12px;display:flex;align-items:center;justify-content:space-between;}
+.section-head-ttl{font-size:12px;font-weight:600;color:var(--ink2);letter-spacing:0.08em;font-family:var(--fu);}
+.section-head-sub{font-size:10px;color:var(--muted);font-family:var(--fu);}
+
+/* 入力カード */
+.row-card{
+  background:var(--paper);border-bottom:1px solid var(--grid);
+  position:relative;
+}
+.row-card.even{background:rgba(200,190,170,0.06);}
+
+.row-top{
+  display:grid;
+  grid-template-columns:36px 1fr 1fr 1fr;
+  min-height:48px;
+  border-bottom:0.5px solid var(--grid);
+}
+.cell{display:flex;flex-direction:column;justify-content:center;padding:4px 6px;
+  border-right:1px solid var(--grid);}
+.cell:last-child{border-right:none;}
+.cell.red-left{border-left:2px solid var(--red-rule);}
+.cell-lbl{font-size:9px;color:var(--muted);font-family:var(--fu);margin-bottom:2px;}
+
+.inp{background:none;border:none;width:100%;font-family:var(--fh);
+  font-size:16px;font-weight:600;color:var(--ink);
+  text-align:right;padding:2px 2px;-webkit-appearance:none;}
+.inp:focus{outline:none;background:rgba(90,58,27,0.07);border-radius:2px;}
+.inp::placeholder{color:rgba(180,168,148,0.5);font-weight:400;font-size:13px;}
+.inp.blue{color:var(--blue);}
+.inp.green{color:var(--green);}
+.inp.orange{color:var(--orange);}
+.inp.ro{pointer-events:none;color:var(--green);font-weight:700;}
+
+/* 法勾配入力 */
+.slope-wrap{display:flex;align-items:center;gap:3px;}
+.slope-pre{font-size:12px;color:var(--muted);font-family:var(--fh);white-space:nowrap;}
+.inp-slope{background:none;border:none;font-family:var(--fh);
+  font-size:16px;font-weight:600;color:var(--orange);
+  text-align:right;padding:2px 2px;width:52px;-webkit-appearance:none;}
+.inp-slope:focus{outline:none;background:rgba(90,58,27,0.07);border-radius:2px;}
+.inp-slope::placeholder{color:rgba(180,168,148,0.5);font-weight:400;font-size:13px;}
+
+/* 結果行 */
+.row-result{
+  display:grid;grid-template-columns:36px 1fr 1fr;
+  background:rgba(26,96,48,0.05);
+  border-top:0.5px dashed var(--grid);
+}
+.result-cell{display:flex;flex-direction:column;justify-content:center;padding:5px 6px;
+  border-right:1px solid var(--grid);}
+.result-cell:last-child{border-right:none;}
+.result-lbl{font-size:9px;color:var(--muted);font-family:var(--fu);}
+.result-val{font-size:15px;font-weight:600;font-family:var(--fh);color:var(--green);}
+
+/* 行ラベル */
+.row-num{font-size:11px;font-weight:600;color:var(--muted);font-family:var(--fu);
+  display:flex;align-items:center;justify-content:center;
+  background:var(--paper2);border-right:1px solid var(--grid-d);}
+
+/* 備考行 */
+.note-row{padding:4px 10px 6px 10px;border-top:0.5px solid var(--grid);}
+.note-inp{background:none;border:none;border-bottom:1px solid var(--grid);
+  font-family:var(--fh);font-size:12px;color:var(--muted);width:100%;padding:2px 2px;}
+.note-inp:focus{outline:none;border-bottom-color:var(--orange);}
+.note-inp::placeholder{color:rgba(180,168,148,0.45);font-size:11px;}
+
+/* 削除ボタン */
+.del-btn{position:absolute;right:6px;top:6px;
+  background:none;border:none;font-size:13px;color:rgba(176,32,32,0.4);
+  cursor:pointer;padding:2px 4px;font-family:var(--fu);}
+.del-btn:active{color:var(--red-v);}
+
+/* 追加ボタン */
+.add-strip{border-top:2px solid var(--ink2);border-bottom:2px solid var(--ink2);background:var(--paper2);}
+.add-btn{width:100%;padding:11px;background:none;border:none;
+  font-size:13px;color:var(--muted);cursor:pointer;font-family:var(--fu);}
+.add-btn b{color:var(--ink2);}
+.add-btn:active{background:var(--paper3);}
+
+/* 集計 */
+.sum-section{padding:14px 14px 10px;}
+.sum-ttl{font-size:11px;font-weight:600;color:var(--ink2);letter-spacing:0.1em;
+  font-family:var(--fu);margin-bottom:10px;padding-bottom:4px;border-bottom:1px solid var(--grid-d);}
+.sum-grid{display:grid;grid-template-columns:1fr 1fr;border:1.5px solid var(--ink2);margin-bottom:10px;}
+.sc{padding:8px 10px;border-right:1px solid var(--grid);border-bottom:1px solid var(--grid);
+  display:flex;flex-direction:column;gap:3px;}
+.sc:nth-child(even){border-right:none;}
+.sc:nth-last-child(-n+2){border-bottom:none;}
+.sc-lbl{font-size:9px;color:var(--muted);font-family:var(--fu);}
+.sc-val{font-size:22px;font-weight:600;font-family:var(--fh);color:var(--ink);}
+.sc-val.green{color:var(--green);}
+.sc-val.orange{color:var(--orange);}
+
+/* 下部バー */
+.btm-bar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);
+  width:100%;max-width:420px;background:var(--cover);border-top:3px solid #3a2010;
+  padding:10px 12px max(env(safe-area-inset-bottom),10px);
+  display:flex;gap:8px;padding-left:38px;}
+.bbtn{flex:1;padding:13px;border-radius:3px;border:1.5px solid rgba(255,255,255,0.25);
+  background:rgba(255,255,255,0.1);color:#fff;font-size:14px;font-weight:600;cursor:pointer;font-family:var(--fu);}
+.bbtn:active{background:rgba(255,255,255,0.22);}
+.bbtn.pri{background:rgba(255,255,255,0.88);color:var(--cover);}
+.bbtn.pri:active{background:#fff;}
+.spacer{height:80px;}
+</style>
+</head>
+<body>
+<div class="spine"><span class="spine-txt">法面積計算　SLOPE AREA</span></div>
+<div class="content">
+
+<div class="cover">
+  <div class="cover-ttl">法面積　計算書</div>
+  <div class="cover-sub">Slope Area Calculation</div>
+  <div class="cover-grid">
+    <div class="cf"><div class="cf-lbl">工事名</div><input class="cf-inp" id="m-name" type="text" placeholder="○○工事"></div>
+    <div class="cf"><div class="cf-lbl">年月日</div><input class="cf-inp" id="m-date" type="date"></div>
+    <div class="cf"><div class="cf-lbl">担当者</div><input class="cf-inp" id="m-person" type="text" placeholder="氏名"></div>
+    <div class="cf"><div class="cf-lbl">摘要</div><input class="cf-inp" id="m-note" type="text" placeholder="切土法面・盛土法面 等"></div>
+  </div>
+</div>
+
+<!-- 図解 -->
+<div class="diagram-section">
+  <div class="diagram-ttl">▌ 計算図</div>
+  <div class="diagram-wrap">
+    <svg class="diag" viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg">
+      <!-- 地面 -->
+      <line x1="10" y1="100" x2="190" y2="100" stroke="#b0a890" stroke-width="1.5"/>
+      <!-- 法面 -->
+      <line x1="40" y1="100" x2="130" y2="20" stroke="#5a3a1b" stroke-width="2.5"/>
+      <!-- 直高H -->
+      <line x1="130" y1="20" x2="130" y2="100" stroke="#1a3a8a" stroke-width="1.5" stroke-dasharray="4,3"/>
+      <text x="134" y="65" font-size="11" fill="#1a3a8a" font-family="Klee One,cursive" font-weight="600">H</text>
+      <text x="133" y="76" font-size="8" fill="#1a3a8a" font-family="Noto Sans JP,sans-serif">直高</text>
+      <!-- n -->
+      <line x1="40" y1="100" x2="130" y2="100" stroke="#a04600" stroke-width="1.5" stroke-dasharray="4,3"/>
+      <text x="80" y="113" font-size="11" fill="#a04600" font-family="Klee One,cursive" font-weight="600">n×H</text>
+      <!-- 法長L -->
+      <text x="60" y="52" font-size="11" fill="#1a6030" font-family="Klee One,cursive" font-weight="600" transform="rotate(-41,85,60)">法長</text>
+      <!-- 勾配ラベル -->
+      <text x="12" y="95" font-size="10" fill="#111118" font-family="Klee One,cursive">1 : n</text>
+      <!-- 直角マーク -->
+      <rect x="122" y="92" width="8" height="8" fill="none" stroke="#888" stroke-width="1"/>
+      <!-- 矢印H -->
+      <line x1="148" y1="20" x2="148" y2="100" stroke="#1a3a8a" stroke-width="1" marker-start="url(#arr)" marker-end="url(#arr)"/>
+      <defs>
+        <marker id="arr" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" fill="#1a3a8a"/>
+        </marker>
+      </defs>
+      <!-- 法長式 -->
+      <text x="10" y="14" font-size="8.5" fill="#1a6030" font-family="Noto Sans JP,sans-serif">法長 = H × √(1+n²)</text>
+      <text x="10" y="24" font-size="8.5" fill="#1a6030" font-family="Noto Sans JP,sans-serif">法面積 = 法長 × 延長</text>
+    </svg>
+  </div>
+</div>
+
+<!-- 入力テーブル -->
+<div class="section-head">
+  <span class="section-head-ttl">▌ 法面リスト</span>
+  <span class="section-head-sub">各法面を入力</span>
+</div>
+
+<div id="row-list"></div>
+
+<div class="add-strip">
+  <button class="add-btn" onclick="addRow()"><b>＋ 法面を追加</b></button>
+</div>
+
+<!-- 集計 -->
+<div class="sum-section">
+  <div class="sum-ttl">▌ 集計</div>
+  <div class="sum-grid">
+    <div class="sc"><div class="sc-lbl">法面数</div><div class="sc-val" id="s-cnt">—</div></div>
+    <div class="sc"><div class="sc-lbl">延長合計</div><div class="sc-val orange" id="s-len">—<span style="font-size:12px"> m</span></div></div>
+    <div class="sc" style="grid-column:1/-1"><div class="sc-lbl">法面積合計</div><div class="sc-val green" id="s-area">—<span style="font-size:14px"> m²</span></div></div>
+  </div>
+</div>
+
+<div class="spacer"></div>
+</div>
+
+<div class="btm-bar">
+  <button class="bbtn" onclick="clearAll()">リセット</button>
+  <button class="bbtn pri" onclick="calcAll()">計算する</button>
+</div>
+
+<script>
+let rows=[], idc=0;
+
+function init(){
+  document.getElementById('m-date').value=new Date().toISOString().split('T')[0];
+  addRow(); addRow();
+}
+
+function addRow(){
+  rows.push({id:idc++, name:'', h:'', n:'', l:'', slopelen:'', area:'', note:''});
+  render();
+}
+function removeRow(id){
+  if(rows.length<=1)return;
+  rows=rows.filter(r=>r.id!==id); render();
+}
+function upd(id,f,v){const r=rows.find(r=>r.id===id);if(r)r[f]=v;}
+
+function r4(v){return Math.round(v*10000)/10000;}
+function r3(v){return Math.round(v*1000)/1000;}
+
+function calcRow(r){
+  const h=parseFloat(r.h), n=parseFloat(r.n), l=parseFloat(r.l);
+  if(!isNaN(h)&&!isNaN(n)&&h>0&&n>0){
+    r.slopelen=r4(h*Math.sqrt(1+n*n));
+  } else { r.slopelen=''; }
+  if(r.slopelen!==''&&!isNaN(l)&&l>0){
+    r.area=r3(r.slopelen*l);
+  } else { r.area=''; }
+}
+
+function calcAll(){
+  rows.forEach(r=>calcRow(r));
+  render();
+  // 集計
+  let cnt=0, totalLen=0, totalArea=0, hasLen=false, hasArea=false;
+  rows.forEach(r=>{
+    if(r.area!==''){cnt++;totalArea+=r.area;hasArea=true;}
+    if(!isNaN(parseFloat(r.l))&&parseFloat(r.l)>0){totalLen+=parseFloat(r.l);hasLen=true;}
+  });
+  document.getElementById('s-cnt').textContent=cnt||'—';
+  document.getElementById('s-len').innerHTML=hasLen?r3(totalLen).toFixed(3)+'<span style="font-size:12px"> m</span>':'—';
+  document.getElementById('s-area').innerHTML=hasArea?r3(totalArea).toFixed(3)+'<span style="font-size:14px"> m²</span>':'—';
+}
+
+function render(){
+  const list=document.getElementById('row-list');
+  list.innerHTML='';
+  rows.forEach((r,i)=>{
+    const blk=document.createElement('div');
+    blk.className='row-card'+(i%2===1?' even':'');
+
+    blk.innerHTML=`
+      ${rows.length>1?`<button class="del-btn" onclick="removeRow(${r.id})">✕</button>`:''}
+      <div class="row-top">
+        <div class="row-num" style="grid-row:1">${i+1}</div>
+        <div class="cell" style="border-left:2px solid var(--red-rule)">
+          <div class="cell-lbl">箇所名・摘要</div>
+          <input class="inp" type="text" placeholder="切土 STA.○+○○" value="${r.name}"
+            oninput="upd(${r.id},'name',this.value)" style="font-size:13px;text-align:left;">
+        </div>
+        <div class="cell">
+          <div class="cell-lbl">直高 H (m)</div>
+          <input class="inp blue" type="number" inputmode="decimal" placeholder="0.00" value="${r.h}"
+            oninput="upd(${r.id},'h',this.value)">
+        </div>
+        <div class="cell">
+          <div class="cell-lbl">法勾配 1 :</div>
+          <div class="slope-wrap">
+            <input class="inp-slope" type="number" inputmode="decimal" placeholder="1.5" value="${r.n}"
+              oninput="upd(${r.id},'n',this.value)">
+          </div>
+        </div>
+      </div>
+      <div class="row-top" style="border-bottom:none">
+        <div class="row-num"></div>
+        <div class="cell" style="border-left:2px solid var(--red-rule)">
+          <div class="cell-lbl">延長 L (m)</div>
+          <input class="inp orange" type="number" inputmode="decimal" placeholder="0.000" value="${r.l}"
+            oninput="upd(${r.id},'l',this.value)">
+        </div>
+        <div class="cell">
+          <div class="cell-lbl">法長 (m)</div>
+          <input class="inp ro" type="text" placeholder="—"
+            value="${r.slopelen!==''?r.slopelen.toFixed(4):''}" readonly>
+        </div>
+        <div class="cell">
+          <div class="cell-lbl">法面積 (m²)</div>
+          <input class="inp ro" type="text" placeholder="—"
+            value="${r.area!==''?r.area.toFixed(3):''}" readonly
+            style="font-size:15px;color:var(--green);font-weight:700;">
+        </div>
+      </div>
+      <div class="note-row">
+        <input class="note-inp" type="text" placeholder="備考（法面保護工種 等）" value="${r.note}"
+          oninput="upd(${r.id},'note',this.value)">
+      </div>`;
+    list.appendChild(blk);
+  });
+}
+
+function clearAll(){
+  if(!confirm('リセットしますか？'))return;
+  rows=[];idc=0;
+  document.getElementById('s-cnt').textContent='—';
+  document.getElementById('s-len').innerHTML='—';
+  document.getElementById('s-area').innerHTML='—';
+  init();
+}
+
+init();
+</script>
+</body>
+</html>
