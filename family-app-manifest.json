@@ -1,0 +1,18 @@
+{
+  "name": "家族アプリ",
+  "short_name": "家族",
+  "description": "献立投票・お小遣い帳・持ち物チェック・買い物リスト",
+  "start_url": "./family-app.html",
+  "display": "standalone",
+  "background_color": "#0f0f18",
+  "theme_color": "#1a1a2e",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "family-app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

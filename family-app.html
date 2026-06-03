@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#1a1a2e">
+<meta name="apple-mobile-web-app-title" content="家族アプリ">
+<link rel="manifest" href="family-app-manifest.json">
+<link rel="apple-touch-icon" href="family-app-icon.svg">
+<title>家族アプリ</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<style>
+:root{
+  --bg:#0f0f18;--sf:#16182e;--sf2:#1e2240;--card:#1a1d38;
+  --text:#e8eaf6;--muted:#7986cb;
+  --gold:#ffd700;--gold2:#ffb300;
+  --red:#ef5350;--green:#4caf50;--blue:#42a5f5;--purple:#ab47bc;--orange:#ff9800;
+  --fu:'Noto Sans JP',sans-serif;--fm:'DM Mono',monospace;
+  --r:14px;--rs:9px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{min-height:100%;background:var(--bg);color:var(--text);font-family:var(--fu);}
+body{max-width:430px;margin:0 auto;min-height:100dvh;}
+
+/* ヘッダー */
+.hdr{padding:max(env(safe-area-inset-top),36px) 16px 12px;
+  background:linear-gradient(180deg,rgba(99,102,241,0.12),transparent);
+  border-bottom:1px solid rgba(255,255,255,0.08);}
+.hdr-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:2px;}
+.hdr-ttl{font-size:20px;font-weight:900;
+  background:linear-gradient(135deg,#a78bfa,#60a5fa);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.hdr-sub{font-size:10px;color:var(--muted);letter-spacing:0.1em;}
+.hdr-name{font-size:12px;color:var(--muted);cursor:pointer;
+  background:var(--sf2);border-radius:20px;padding:4px 12px;}
+
+/* ナビ */
+.nav{display:flex;background:var(--sf);border-top:0.5px solid rgba(255,255,255,0.06);
+  position:fixed;bottom:0;left:50%;transform:translateX(-50%);
+  width:100%;max-width:430px;padding:8px 0 max(env(safe-area-inset-bottom),10px);
+  z-index:100;}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
+  background:none;border:none;cursor:pointer;padding:4px 2px;}
+.nav-icon{font-size:22px;transition:transform 0.15s;}
+.nav-label{font-size:9px;color:var(--muted);font-family:var(--fu);}
+.nav-btn.active .nav-icon{transform:scale(1.15);}
+.nav-btn.active .nav-label{color:var(--gold);font-weight:700;}
+
+.main{padding:12px 12px calc(env(safe-area-inset-bottom)+80px);}
+.panel{display:none;}
+.panel.active{display:block;}
+
+/* 共通カード */
+.card{background:var(--card);border-radius:var(--r);
+  border:1px solid rgba(255,255,255,0.07);margin-bottom:10px;overflow:hidden;}
+.card-hdr{padding:12px 14px;border-bottom:1px solid rgba(255,255,255,0.06);
+  display:flex;align-items:center;justify-content:space-between;}
+.card-ttl{font-size:14px;font-weight:700;}
+.card-body{padding:12px 14px;}
+
+/* ══════════════════════════════════
+   🍚 献立投票
+══════════════════════════════════ */
+.vote-date{font-size:13px;color:var(--muted);margin-bottom:12px;text-align:center;}
+.vote-input-row{display:flex;gap:8px;margin-bottom:12px;}
+.vote-inp{flex:1;background:var(--sf);border:1px solid rgba(255,255,255,0.1);
+  border-radius:var(--rs);color:var(--text);font-family:var(--fu);font-size:15px;
+  padding:10px 13px;}
+.vote-inp:focus{outline:none;border-color:var(--purple);}
+.vote-add-btn{padding:10px 16px;border-radius:var(--rs);border:none;
+  background:var(--purple);color:#fff;font-size:14px;font-weight:700;cursor:pointer;}
+.vote-list{display:flex;flex-direction:column;gap:8px;margin-bottom:14px;}
+.vote-item{background:var(--sf);border-radius:var(--rs);padding:10px 14px;
+  display:flex;align-items:center;gap:10px;border:1px solid rgba(255,255,255,0.06);}
+.vote-item.winner{border-color:var(--gold);background:rgba(255,215,0,0.08);}
+.vote-name{flex:1;font-size:14px;font-weight:500;}
+.vote-bar-wrap{width:80px;}
+.vote-bar-bg{background:rgba(255,255,255,0.08);border-radius:3px;height:6px;overflow:hidden;}
+.vote-bar-fill{height:6px;border-radius:3px;background:linear-gradient(90deg,var(--purple),#818cf8);transition:width 0.4s;}
+.vote-count{font-size:12px;font-family:var(--fm);color:var(--muted);min-width:24px;text-align:right;}
+.vote-btn{padding:6px 12px;border-radius:var(--rs);border:none;cursor:pointer;
+  font-size:12px;font-weight:700;background:var(--sf2);color:var(--text);}
+.vote-btn:active{background:var(--purple);color:#fff;}
+.vote-del{background:none;border:none;color:rgba(239,83,80,0.4);cursor:pointer;font-size:14px;padding:2px 4px;}
+.vote-del:active{color:var(--red);}
+.vote-result{text-align:center;padding:10px;background:rgba(255,215,0,0.08);
+  border-radius:var(--rs);border:1px solid rgba(255,215,0,0.2);font-size:14px;}
+.btn-reset-vote{width:100%;padding:10px;border-radius:var(--rs);border:1px dashed rgba(255,255,255,0.15);
+  background:none;color:var(--muted);font-size:13px;cursor:pointer;margin-top:4px;}
+
+/* ══════════════════════════════════
+   💰 お小遣い帳
+══════════════════════════════════ */
+.okozukai-tabs{display:flex;gap:6px;margin-bottom:12px;}
+.ok-tab{flex:1;padding:8px;border-radius:var(--rs);border:1px solid rgba(255,255,255,0.1);
+  background:none;color:var(--muted);font-size:13px;cursor:pointer;font-family:var(--fu);}
+.ok-tab.active{background:var(--green);border-color:var(--green);color:#fff;font-weight:700;}
+.balance-card{background:linear-gradient(135deg,rgba(76,175,80,0.15),rgba(76,175,80,0.05));
+  border:1px solid rgba(76,175,80,0.2);border-radius:var(--r);
+  padding:16px;text-align:center;margin-bottom:12px;}
+.balance-lbl{font-size:11px;color:var(--muted);margin-bottom:4px;}
+.balance-num{font-size:36px;font-weight:900;font-family:var(--fm);color:var(--green);}
+.balance-sub{font-size:11px;color:var(--muted);margin-top:4px;}
+.ok-form{background:var(--sf);border-radius:var(--r);padding:12px;margin-bottom:12px;
+  display:flex;flex-direction:column;gap:8px;}
+.ok-form-row{display:flex;gap:8px;}
+.ok-inp{flex:1;background:var(--card);border:1px solid rgba(255,255,255,0.1);
+  border-radius:var(--rs);color:var(--text);font-family:var(--fu);font-size:15px;padding:9px 12px;}
+.ok-inp:focus{outline:none;border-color:var(--green);}
+.ok-inp.amount{font-family:var(--fm);font-weight:700;width:110px;flex-shrink:0;text-align:right;}
+.ok-type-row{display:flex;gap:6px;}
+.ok-type-btn{flex:1;padding:8px;border-radius:var(--rs);border:1px solid rgba(255,255,255,0.1);
+  background:none;color:var(--muted);font-size:13px;cursor:pointer;}
+.ok-type-btn.in.active{background:var(--green);border-color:var(--green);color:#fff;font-weight:700;}
+.ok-type-btn.out.active{background:var(--red);border-color:var(--red);color:#fff;font-weight:700;}
+.ok-submit{padding:10px;border-radius:var(--rs);border:none;
+  background:var(--green);color:#fff;font-size:14px;font-weight:700;cursor:pointer;}
+.ok-submit.out{background:var(--red);}
+.ok-hist{display:flex;flex-direction:column;gap:6px;}
+.ok-item{background:var(--sf);border-radius:var(--rs);padding:9px 12px;
+  display:flex;align-items:center;gap:10px;border:1px solid rgba(255,255,255,0.06);}
+.ok-item-memo{flex:1;font-size:13px;}
+.ok-item-date{font-size:10px;color:var(--muted);}
+.ok-item-amt{font-family:var(--fm);font-weight:700;font-size:15px;white-space:nowrap;}
+.ok-item-amt.inc{color:var(--green);}
+.ok-item-amt.dec{color:var(--red);}
+
+/* ══════════════════════════════════
+   🧳 持ち物チェック
+══════════════════════════════════ */
+.pack-event-row{display:flex;gap:8px;margin-bottom:12px;}
+.pack-event-inp{flex:1;background:var(--sf);border:1px solid rgba(255,255,255,0.1);
+  border-radius:var(--rs);color:var(--text);font-family:var(--fu);font-size:14px;padding:9px 12px;}
+.pack-event-inp:focus{outline:none;border-color:var(--orange);}
+.pack-add-btn{padding:9px 14px;border-radius:var(--rs);border:none;
+  background:var(--orange);color:#fff;font-size:14px;font-weight:700;cursor:pointer;}
+.pack-progress{background:rgba(255,255,255,0.06);border-radius:4px;height:8px;
+  overflow:hidden;margin-bottom:6px;}
+.pack-progress-fill{height:8px;border-radius:4px;
+  background:linear-gradient(90deg,var(--orange),#facc15);transition:width 0.4s;}
+.pack-progress-lbl{font-size:11px;color:var(--muted);text-align:right;margin-bottom:10px;}
+.pack-list{display:flex;flex-direction:column;gap:6px;}
+.pack-item{background:var(--sf);border-radius:var(--rs);padding:10px 12px;
+  display:flex;align-items:center;gap:10px;border:1px solid rgba(255,255,255,0.06);
+  cursor:pointer;transition:all 0.15s;}
+.pack-item.done{opacity:0.5;background:rgba(76,175,80,0.05);}
+.pack-check{width:22px;height:22px;border-radius:50%;border:2px solid rgba(255,255,255,0.2);
+  display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;}
+.pack-item.done .pack-check{background:var(--green);border-color:var(--green);}
+.pack-item-name{flex:1;font-size:14px;}
+.pack-item.done .pack-item-name{text-decoration:line-through;color:var(--muted);}
+.pack-person{font-size:11px;color:var(--muted);background:var(--sf2);
+  border-radius:10px;padding:2px 8px;white-space:nowrap;}
+.pack-del-btn{background:none;border:none;color:rgba(239,83,80,0.3);cursor:pointer;font-size:14px;padding:2px 4px;}
+.pack-del-btn:active{color:var(--red);}
+.pack-add-row{display:flex;gap:6px;margin-top:10px;}
+.pack-new-inp{flex:1;background:var(--sf);border:1px solid rgba(255,255,255,0.1);
+  border-radius:var(--rs);color:var(--text);font-size:14px;padding:9px 12px;font-family:var(--fu);}
+.pack-new-inp:focus{outline:none;border-color:var(--orange);}
+.pack-person-sel{background:var(--sf);border:1px solid rgba(255,255,255,0.1);
+  border-radius:var(--rs);color:var(--text);font-size:13px;padding:9px 8px;}
+.pack-submit{padding:9px 14px;border-radius:var(--rs);border:none;
+  background:var(--orange);color:#fff;font-size:13px;font-weight:700;cursor:pointer;}
+.btn-clear-done{width:100%;padding:9px;border-radius:var(--rs);border:1px dashed rgba(255,255,255,0.12);
+  background:none;color:var(--muted);font-size:12px;cursor:pointer;margin-top:8px;}
+
+/* ══════════════════════════════════
+   🛒 買い物リスト
+══════════════════════════════════ */
+.shop-cat-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;}
+.cat-chip{padding:6px 12px;border-radius:20px;border:1px solid rgba(255,255,255,0.1);
+  background:var(--sf);color:var(--muted);font-size:12px;cursor:pointer;font-family:var(--fu);}
+.cat-chip.active{background:var(--blue);border-color:var(--blue);color:#fff;font-weight:700;}
+.shop-add-row{display:flex;gap:6px;margin-bottom:12px;}
+.shop-inp{flex:1;background:var(--sf);border:1px solid rgba(255,255,255,0.1);
+  border-radius:var(--rs);color:var(--text);font-size:14px;padding:9px 12px;font-family:var(--fu);}
+.shop-inp:focus{outline:none;border-color:var(--blue);}
+.shop-qty{width:56px;background:var(--sf);border:1px solid rgba(255,255,255,0.1);
+  border-radius:var(--rs);color:var(--text);font-size:14px;padding:9px 8px;
+  text-align:center;font-family:var(--fm);-webkit-appearance:none;}
+.shop-qty:focus{outline:none;border-color:var(--blue);}
+.shop-add{padding:9px 14px;border-radius:var(--rs);border:none;
+  background:var(--blue);color:#fff;font-size:14px;font-weight:700;cursor:pointer;}
+.shop-list{display:flex;flex-direction:column;gap:6px;}
+.shop-item{background:var(--sf);border-radius:var(--rs);padding:10px 12px;
+  display:flex;align-items:center;gap:10px;border:1px solid rgba(255,255,255,0.06);
+  cursor:pointer;}
+.shop-item.bought{opacity:0.4;}
+.shop-check{width:22px;height:22px;border-radius:50%;border:2px solid rgba(255,255,255,0.2);
+  display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;}
+.shop-item.bought .shop-check{background:var(--blue);border-color:var(--blue);}
+.shop-info{flex:1;min-width:0;}
+.shop-name{font-size:14px;}
+.shop-item.bought .shop-name{text-decoration:line-through;color:var(--muted);}
+.shop-meta{font-size:10px;color:var(--muted);}
+.shop-qty-badge{font-size:12px;font-family:var(--fm);color:var(--blue);white-space:nowrap;}
+.shop-del{background:none;border:none;color:rgba(239,83,80,0.3);cursor:pointer;font-size:14px;padding:2px 4px;}
+.shop-del:active{color:var(--red);}
+.shop-clear-btn{width:100%;padding:9px;border-radius:var(--rs);border:1px dashed rgba(255,255,255,0.12);
+  background:none;color:var(--muted);font-size:12px;cursor:pointer;margin-top:8px;}
+.empty{text-align:center;padding:32px;color:var(--muted);font-size:13px;}
+
+/* 名前設定モーダル */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(10px);
+  z-index:200;display:flex;align-items:flex-end;justify-content:center;}
+.modal.hidden{display:none;}
+.modal-sheet{width:100%;max-width:430px;background:var(--sf);border-radius:22px 22px 0 0;
+  border-top:1px solid rgba(255,255,255,0.1);
+  padding:20px 20px max(env(safe-area-inset-bottom),24px);animation:su 0.3s ease;}
+@keyframes su{from{transform:translateY(60px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+.m-handle{width:34px;height:4px;background:rgba(255,255,255,0.18);border-radius:2px;margin:0 auto 16px;}
+.m-ttl{font-size:16px;font-weight:700;margin-bottom:4px;text-align:center;}
+.m-sub{font-size:12px;color:var(--muted);text-align:center;margin-bottom:16px;}
+.m-inp{width:100%;background:var(--card);border:1px solid rgba(255,255,255,0.1);
+  border-radius:var(--rs);color:var(--text);font-family:var(--fu);
+  font-size:16px;padding:12px 14px;text-align:center;margin-bottom:12px;}
+.m-inp:focus{outline:none;border-color:var(--gold);}
+.m-ok{width:100%;padding:13px;border-radius:var(--r);border:none;
+  background:linear-gradient(135deg,var(--gold2),var(--gold));
+  color:#1a1a2e;font-size:15px;font-weight:700;cursor:pointer;}
+</style>
+</head>
+<body>
+<div class="hdr">
+  <div class="hdr-top">
+    <div>
+      <div class="hdr-ttl">🏠 家族アプリ</div>
+      <div class="hdr-sub">FAMILY APP</div>
+    </div>
+    <div class="hdr-name" id="hdr-name" onclick="openNameModal()">👤 名前を設定</div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="panel active" id="panel-vote"></div>
+  <div class="panel" id="panel-money"></div>
+  <div class="panel" id="panel-pack"></div>
+  <div class="panel" id="panel-shop"></div>
+</div>
+
+<div class="nav">
+  <button class="nav-btn active" onclick="switchTab('vote')">
+    <span class="nav-icon">🍚</span><span class="nav-label">献立投票</span>
+  </button>
+  <button class="nav-btn" onclick="switchTab('money')">
+    <span class="nav-icon">💰</span><span class="nav-label">お小遣い</span>
+  </button>
+  <button class="nav-btn" onclick="switchTab('pack')">
+    <span class="nav-icon">🧳</span><span class="nav-label">持ち物</span>
+  </button>
+  <button class="nav-btn" onclick="switchTab('shop')">
+    <span class="nav-icon">🛒</span><span class="nav-label">買い物</span>
+  </button>
+</div>
+
+<!-- 名前設定モーダル -->
+<div class="modal hidden" id="name-modal">
+  <div class="modal-sheet">
+    <div class="m-handle"></div>
+    <div class="m-ttl">あなたの名前を設定</div>
+    <div class="m-sub">誰が操作しているか記録するために使います</div>
+    <input class="m-inp" id="name-inp" type="text" placeholder="例：お父さん・かりん" maxlength="10">
+    <button class="m-ok" onclick="saveName()">決定</button>
+  </div>
+</div>
+
+<script>
+// Firebase
+const firebaseConfig = {
+  apiKey: "AIzaSyCqdLNm7TM4daaIg3Q4GzcDRdvS74VPBm0",
+  authDomain: "family-points-99bdf.firebaseapp.com",
+  databaseURL: "https://family-points-99bdf-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "family-points-99bdf",
+  storageBucket: "family-points-99bdf.firebasestorage.app",
+  messagingSenderId: "930095800388",
+  appId: "1:930095800388:web:507f45c34d8953f36d9c11"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+let userName = localStorage.getItem('familyAppName') || '';
+let currentTab = 'vote';
+
+// 名前
+function openNameModal(){
+  document.getElementById('name-inp').value = userName;
+  document.getElementById('name-modal').classList.remove('hidden');
+}
+function saveName(){
+  const v = document.getElementById('name-inp').value.trim();
+  if(!v) return;
+  userName = v;
+  localStorage.setItem('familyAppName', v);
+  document.getElementById('hdr-name').textContent = '👤 ' + v;
+  document.getElementById('name-modal').classList.add('hidden');
+}
+document.getElementById('name-modal').addEventListener('click', function(e){
+  if(e.target===this) this.classList.add('hidden');
+});
+if(userName) document.getElementById('hdr-name').textContent = '👤 ' + userName;
+
+// タブ
+function switchTab(t){
+  currentTab = t;
+  document.querySelectorAll('.nav-btn').forEach((b,i)=>
+    b.classList.toggle('active',['vote','money','pack','shop'][i]===t));
+  document.querySelectorAll('.panel').forEach((p,i)=>
+    p.classList.toggle('active',['vote','money','pack','shop'][i]===t));
+  if(t==='vote')  renderVote();
+  else if(t==='money') renderMoney();
+  else if(t==='pack')  renderPack();
+  else renderShop();
+}
+
+// ══════════ 🍚 献立投票 ══════════
+let voteData = {items:[], date:''};
+db.ref('vote').on('value', snap => {
+  voteData = snap.val() || {items:[], date:''};
+  if(currentTab==='vote') renderVote();
+});
+
+function renderVote(){
+  const p = document.getElementById('panel-vote');
+  const today = new Date().toLocaleDateString('ja-JP',{month:'long',day:'numeric',weekday:'short'});
+  const items = voteData.items || [];
+  const maxVote = items.length ? Math.max(...items.map(i=>i.votes||0)) : 0;
+  const winner = items.find(i=>(i.votes||0)===maxVote && maxVote>0);
+
+  p.innerHTML = `
+    <div class="card">
+      <div class="card-hdr">
+        <div class="card-ttl">🍚 今日の献立投票</div>
+        <span style="font-size:12px;color:var(--muted)">${today}</span>
+      </div>
+      <div class="card-body">
+        <div class="vote-input-row">
+          <input class="vote-inp" id="vote-inp" type="text" placeholder="料理名を入力…" maxlength="20">
+          <button class="vote-add-btn" onclick="addVoteItem()">追加</button>
+        </div>
+        <div class="vote-list">
+          ${items.length ? items.map((item,i)=>`
+            <div class="vote-item${winner&&item.name===winner.name?' winner':''}">
+              <div class="vote-name">${item.name}${winner&&item.name===winner.name?' 👑':''}</div>
+              <div class="vote-bar-wrap">
+                <div class="vote-bar-bg">
+                  <div class="vote-bar-fill" style="width:${maxVote>0?(item.votes||0)/maxVote*100:0}%"></div>
+                </div>
+              </div>
+              <div class="vote-count">${item.votes||0}票</div>
+              <button class="vote-btn" onclick="doVote(${i})">投票</button>
+              <button class="vote-del" onclick="delVoteItem(${i})">✕</button>
+            </div>`).join('') : '<div class="empty">料理を追加して投票しよう！</div>'}
+        </div>
+        ${winner?`<div class="vote-result">🏆 今日の献立は <b>${winner.name}</b> に決定！</div>`:''}
+        ${items.length?`<button class="btn-reset-vote" onclick="resetVote()">🔄 投票をリセット</button>`:''}
+      </div>
+    </div>`;
+}
+function addVoteItem(){
+  const inp = document.getElementById('vote-inp');
+  const name = inp.value.trim();
+  if(!name) return;
+  const items = voteData.items || [];
+  items.push({name, votes:0, by:userName||'?'});
+  db.ref('vote').set({items, date:new Date().toLocaleDateString('ja-JP')});
+  inp.value = '';
+}
+function doVote(i){
+  const items = voteData.items || [];
+  if(!items[i]) return;
+  items[i].votes = (items[i].votes||0) + 1;
+  db.ref('vote').set({items, date:voteData.date});
+}
+function delVoteItem(i){
+  const items = (voteData.items||[]).filter((_,j)=>j!==i);
+  db.ref('vote').set({items, date:voteData.date});
+}
+function resetVote(){
+  if(!confirm('投票をリセットしますか？')) return;
+  db.ref('vote').set({items:[], date:''});
+}
+
+// ══════════ 💰 お小遣い帳 ══════════
+let moneyData = {};
+let okTab = 'in';
+let selectedKid = '';
+db.ref('money').on('value', snap => {
+  moneyData = snap.val() || {};
+  if(currentTab==='money') renderMoney();
+});
+
+function renderMoney(){
+  const p = document.getElementById('panel-money');
+  const kids = ['こども1','こども2','こども3','こども4'];
+  if(!selectedKid) selectedKid = kids[0];
+  const hist = moneyData[selectedKid] || [];
+  const balance = hist.reduce((s,h)=>s+(h.type==='in'?h.amt:-h.amt),0);
+  const income = hist.filter(h=>h.type==='in').reduce((s,h)=>s+h.amt,0);
+  const spend  = hist.filter(h=>h.type==='out').reduce((s,h)=>s+h.amt,0);
+
+  p.innerHTML = `
+    <div class="okozukai-tabs">
+      ${kids.map(k=>`<button class="ok-tab${k===selectedKid?' active':''}" onclick="selKid('${k}')">${k}</button>`).join('')}
+    </div>
+    <div class="balance-card">
+      <div class="balance-lbl">💰 所持金</div>
+      <div class="balance-num">¥${balance.toLocaleString()}</div>
+      <div class="balance-sub">収入 ¥${income.toLocaleString()} / 支出 ¥${spend.toLocaleString()}</div>
+    </div>
+    <div class="ok-form">
+      <div class="ok-type-row">
+        <button class="ok-type-btn in${okTab==='in'?' active':''}" onclick="setOkTab('in')">＋ もらった</button>
+        <button class="ok-type-btn out${okTab==='out'?' active':''}" onclick="setOkTab('out')">－ つかった</button>
+      </div>
+      <div class="ok-form-row">
+        <input class="ok-inp" id="ok-memo" type="text" placeholder="メモ（例：おこづかい）" maxlength="20">
+        <input class="ok-inp amount" id="ok-amt" type="number" inputmode="numeric" placeholder="¥0" min="0">
+      </div>
+      <button class="ok-submit${okTab==='out'?' out':''}" onclick="addMoney()">
+        ${okTab==='in'?'＋ 収入を記録':'－ 支出を記録'}
+      </button>
+    </div>
+    <div class="ok-hist">
+      ${hist.length ? [...hist].reverse().slice(0,30).map((h,i)=>`
+        <div class="ok-item">
+          <div class="ok-item-memo">
+            <div>${h.memo||'（メモなし）'}</div>
+            <div class="ok-item-date">${h.time}</div>
+          </div>
+          <div class="ok-item-amt ${h.type==='in'?'inc':'dec'}">${h.type==='in'?'+':'-'}¥${h.amt.toLocaleString()}</div>
+        </div>`).join('') : '<div class="empty">まだ記録がありません</div>'}
+    </div>`;
+}
+function selKid(k){ selectedKid=k; renderMoney(); }
+function setOkTab(t){ okTab=t; renderMoney(); }
+function addMoney(){
+  const memo = document.getElementById('ok-memo').value.trim()||'（メモなし）';
+  const amt = parseInt(document.getElementById('ok-amt').value)||0;
+  if(amt<=0){ alert('金額を入力してください'); return; }
+  const hist = moneyData[selectedKid] || [];
+  hist.push({type:okTab, memo, amt, time:new Date().toLocaleDateString('ja-JP'), by:userName||'?'});
+  db.ref('money/'+selectedKid).set(hist);
+  document.getElementById('ok-memo').value='';
+  document.getElementById('ok-amt').value='';
+}
+
+// ══════════ 🧳 持ち物チェック ══════════
+let packData = {event:'', items:[]};
+db.ref('pack').on('value', snap => {
+  packData = snap.val() || {event:'', items:[]};
+  if(currentTab==='pack') renderPack();
+});
+
+function renderPack(){
+  const p = document.getElementById('panel-pack');
+  const items = packData.items || [];
+  const done = items.filter(i=>i.checked).length;
+  const pct = items.length ? Math.round(done/items.length*100) : 0;
+  const members = ['全員','お父さん','お母さん','こども1','こども2','こども3','こども4'];
+
+  p.innerHTML = `
+    <div class="card">
+      <div class="card-hdr">
+        <div class="card-ttl">🧳 持ち物チェック</div>
+        <span style="font-size:11px;color:var(--muted)">${done}/${items.length} 完了</span>
+      </div>
+      <div class="card-body">
+        <div class="pack-event-row">
+          <input class="pack-event-inp" id="pack-event" type="text"
+            placeholder="イベント名（例：夏休み旅行）" value="${packData.event||''}"
+            oninput="packData.event=this.value">
+          <button class="pack-add-btn" onclick="savePackEvent()">設定</button>
+        </div>
+        ${items.length?`
+          <div class="pack-progress">
+            <div class="pack-progress-fill" style="width:${pct}%"></div>
+          </div>
+          <div class="pack-progress-lbl">${pct}% 準備完了</div>`:''}
+        <div class="pack-list">
+          ${items.map((item,i)=>`
+            <div class="pack-item${item.checked?' done':''}" onclick="togglePack(${i})">
+              <div class="pack-check">${item.checked?'✓':''}</div>
+              <div class="pack-item-name">${item.name}</div>
+              <div class="pack-person">${item.person||'全員'}</div>
+              <button class="pack-del-btn" onclick="event.stopPropagation();delPack(${i})">✕</button>
+            </div>`).join('')}
+        </div>
+        <div class="pack-add-row">
+          <input class="pack-new-inp" id="pack-new" type="text" placeholder="持ち物を追加…" maxlength="20">
+          <select class="pack-person-sel" id="pack-person-sel">
+            ${members.map(m=>`<option>${m}</option>`).join('')}
+          </select>
+          <button class="pack-submit" onclick="addPack()">追加</button>
+        </div>
+        ${items.filter(i=>i.checked).length?`
+          <button class="btn-clear-done" onclick="clearDonePack()">✓ チェック済みを削除</button>`:''}
+      </div>
+    </div>`;
+}
+function savePackEvent(){
+  db.ref('pack').set({event:packData.event, items:packData.items||[]});
+}
+function addPack(){
+  const name = document.getElementById('pack-new').value.trim();
+  const person = document.getElementById('pack-person-sel').value;
+  if(!name) return;
+  const items = packData.items || [];
+  items.push({name, person, checked:false, by:userName||'?'});
+  db.ref('pack').set({event:packData.event||'', items});
+  document.getElementById('pack-new').value='';
+}
+function togglePack(i){
+  const items = packData.items || [];
+  if(!items[i]) return;
+  items[i].checked = !items[i].checked;
+  db.ref('pack').set({event:packData.event||'', items});
+}
+function delPack(i){
+  const items = (packData.items||[]).filter((_,j)=>j!==i);
+  db.ref('pack').set({event:packData.event||'', items});
+}
+function clearDonePack(){
+  const items = (packData.items||[]).filter(i=>!i.checked);
+  db.ref('pack').set({event:packData.event||'', items});
+}
+
+// ══════════ 🛒 買い物リスト ══════════
+let shopData = [];
+let shopCat = '全て';
+const shopCats = ['全て','野菜・果物','肉・魚','乳製品','飲み物','お菓子','日用品','その他'];
+db.ref('shop').on('value', snap => {
+  const d = snap.val();
+  shopData = d ? Object.entries(d).map(([k,v])=>({...v,_key:k})) : [];
+  if(currentTab==='shop') renderShop();
+});
+
+function renderShop(){
+  const p = document.getElementById('panel-shop');
+  const filtered = shopCat==='全て' ? shopData : shopData.filter(i=>i.cat===shopCat);
+  const remaining = shopData.filter(i=>!i.bought).length;
+
+  p.innerHTML = `
+    <div class="card">
+      <div class="card-hdr">
+        <div class="card-ttl">🛒 買い物リスト</div>
+        <span style="font-size:12px;color:var(--muted)">残り ${remaining} 品</span>
+      </div>
+      <div class="card-body">
+        <div class="shop-add-row">
+          <input class="shop-inp" id="shop-inp" type="text" placeholder="商品名を入力…" maxlength="20">
+          <input class="shop-qty" id="shop-qty" type="number" inputmode="numeric" value="1" min="1" max="99">
+          <button class="shop-add" onclick="addShopItem()">追加</button>
+        </div>
+        <div class="shop-cat-row">
+          ${shopCats.map(c=>`<button class="cat-chip${c===shopCat?' active':''}" onclick="setShopCat('${c}')">${c}</button>`).join('')}
+        </div>
+        <div class="shop-list">
+          ${filtered.length ? filtered.map(item=>`
+            <div class="shop-item${item.bought?' bought':''}" onclick="toggleShop('${item._key}')">
+              <div class="shop-check">${item.bought?'✓':''}</div>
+              <div class="shop-info">
+                <div class="shop-name">${item.name}</div>
+                <div class="shop-meta">${item.cat||'その他'} · ${item.by||'?'}が追加</div>
+              </div>
+              <div class="shop-qty-badge">×${item.qty||1}</div>
+              <button class="shop-del" onclick="event.stopPropagation();delShop('${item._key}')">✕</button>
+            </div>`).join('') : '<div class="empty">商品を追加してください</div>'}
+        </div>
+        ${shopData.filter(i=>i.bought).length?`
+          <button class="shop-clear-btn" onclick="clearBought()">✓ 購入済みを削除</button>`:''}
+      </div>
+    </div>`;
+}
+function setShopCat(c){ shopCat=c; renderShop(); }
+function addShopItem(){
+  const name = document.getElementById('shop-inp').value.trim();
+  const qty = parseInt(document.getElementById('shop-qty').value)||1;
+  if(!name) return;
+  db.ref('shop').push({name, qty, cat:shopCat==='全て'?'その他':shopCat,
+    bought:false, by:userName||'?', time:new Date().toLocaleDateString('ja-JP')});
+  document.getElementById('shop-inp').value='';
+  document.getElementById('shop-qty').value='1';
+}
+function toggleShop(key){
+  const item = shopData.find(i=>i._key===key);
+  if(!item) return;
+  db.ref('shop/'+key).update({bought:!item.bought});
+}
+function delShop(key){ db.ref('shop/'+key).remove(); }
+function clearBought(){
+  shopData.filter(i=>i.bought).forEach(i=>db.ref('shop/'+i._key).remove());
+}
+
+// 初期表示
+renderVote();
+
+// PWA
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('./family-app-sw.js').catch(()=>{});
+}
+const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+if(isIos && !window.navigator.standalone && !localStorage.getItem('ios-app-hint')){
+  const hint = document.createElement('div');
+  hint.style.cssText='position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(167,139,250,0.95);color:#1a1a2e;padding:12px 20px;border-radius:12px;font-size:13px;font-weight:700;text-align:center;z-index:9999;max-width:300px;box-shadow:0 4px 20px rgba(0,0,0,0.3)';
+  hint.innerHTML='📱 ホーム画面に追加できます！<br><small>Safari → 共有(↑) → ホーム画面に追加</small>';
+  document.body.appendChild(hint);
+  setTimeout(()=>{hint.style.opacity='0';hint.style.transition='opacity 0.5s';setTimeout(()=>hint.remove(),500);},6000);
+  localStorage.setItem('ios-app-hint','1');
+}
+</script>
+</body>
+</html>
