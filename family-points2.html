@@ -358,7 +358,7 @@ function renderSettings(){
       <input class="s-inp flex" type="text" value="${t.name}" oninput="state.tasks[${i}].name=this.value">
       <input class="s-inp w50 right gold" type="number" value="${t.pt}" min="1" oninput="state.tasks[${i}].pt=+this.value||1">
       <span class="s-unit">pt</span>
-      <button class="s-del" onclick="state.tasks.splice(${i},1);renderSettings()">✕</button>
+      <button class="s-del" onclick="window._delTask(${i})">✕</button>
     </div>`).join('');
 
   const penRows = state.penalties.map((t,i)=>`
@@ -367,7 +367,7 @@ function renderSettings(){
       <input class="s-inp flex" type="text" value="${t.name}" oninput="state.penalties[${i}].name=this.value">
       <input class="s-inp w50 right red" type="number" value="${Math.abs(t.pt)}" min="1" oninput="state.penalties[${i}].pt=-Math.abs(+this.value||1)">
       <span class="s-unit">pt</span>
-      <button class="s-del" onclick="state.penalties.splice(${i},1);renderSettings()">✕</button>
+      <button class="s-del" onclick="window._delPen(${i})">✕</button>
     </div>`).join('');
 
   const exRows = state.exchanges.map((e,i)=>`
@@ -376,7 +376,7 @@ function renderSettings(){
       <input class="s-inp flex" type="text" value="${e.name}" oninput="state.exchanges[${i}].name=this.value">
       <input class="s-inp w50 right red" type="number" value="${e.pt}" min="1" oninput="state.exchanges[${i}].pt=+this.value||1">
       <span class="s-unit">pt</span>
-      <button class="s-del" onclick="state.exchanges.splice(${i},1);renderSettings()">✕</button>
+      <button class="s-del" onclick="window._delEx(${i})">✕</button>
     </div>`).join('');
 
   p.innerHTML=`
@@ -387,34 +387,37 @@ function renderSettings(){
     <div class="s-sec">
       <div class="s-ttl">✅ お手伝い・ポイント</div>
       <div class="s-card">${taskRows}</div>
-      <button class="add-btn" onclick="state.tasks.push({icon:'⭐',name:'新しいお手伝い',pt:5});renderSettings()">＋ お手伝いを追加</button>
+      <button class="add-btn" onclick="window.addTask()">＋ お手伝いを追加</button>
     </div>
     <div class="s-sec">
       <div class="s-ttl">😤 罰則ポイント</div>
       <div class="s-card">${penRows}</div>
-      <button class="add-btn red-btn" onclick="state.penalties.push({icon:'😠',name:'新しい罰則',pt:-3});renderSettings()">＋ 罰則を追加</button>
+      <button class="add-btn red-btn" onclick="window.addPen()">＋ 罰則を追加</button>
     </div>
     <div class="s-sec">
       <div class="s-ttl">🎁 ポイント交換アイテム</div>
       <div class="s-card">${exRows}</div>
-      <button class="add-btn ex-btn" onclick="state.exchanges.push({icon:'🎁',name:'ごほうび',pt:20});renderSettings()">＋ 交換アイテムを追加</button>
+      <button class="add-btn ex-btn" onclick="window.addEx()">＋ 交換アイテムを追加</button>
     </div>
     <div class="s-sec">
       <div class="s-ttl">⚠️ リセット</div>
       <div class="s-card">
         <div class="s-row">
           <span class="s-lbl" style="color:rgba(239,83,80,0.85)">全員のポイントをリセット</span>
-          <button class="reset-btn" onclick="resetPts()">リセット</button>
+          <button class="reset-btn" onclick="window.resetPts()">リセット</button>
         </div>
       </div>
     </div>
-    <button class="save-btn" onclick="doSave()">💾 保存する</button>`;
+    <button class="save-btn" onclick="window.doSave()">💾 保存する</button>`;
 }
 window.resetPts = () => {
   if(!confirm('全員のポイントをリセットしますか？')) return;
   state.members.forEach(m=>m.pt=0); saveState();
 };
 window.doSave = () => { saveState(); alert('保存しました！'); switchTab('home'); };
+window._delTask = i => { state.tasks.splice(i,1); renderSettings(); };
+window._delPen  = i => { state.penalties.splice(i,1); renderSettings(); };
+window._delEx   = i => { state.exchanges.splice(i,1); renderSettings(); };
 </script>
 <style>
 :root{
