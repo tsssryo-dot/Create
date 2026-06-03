@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="面積計算">
+<meta name="theme-color" content="#0f0f13">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.svg">
+<title>面積計算</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0f0f13;
+  --surface: #18181f;
+  --surface2: #22222d;
+  --border: rgba(255,255,255,0.08);
+  --accent: #7c6fff;
+  --accent2: #b8a9ff;
+  --text: #f0eeff;
+  --muted: #8888aa;
+  --success: #4ecca0;
+  --danger: #ff6b7a;
+  --warn: #ffb84d;
+  --mono: 'DM Mono', monospace;
+  --sans: 'Noto Sans JP', sans-serif;
+  --r: 14px; --r-sm: 8px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--sans); }
+body { display: flex; flex-direction: column; max-width: 430px; margin: 0 auto; min-height: 100dvh; }
+
+.header {
+  padding: env(safe-area-inset-top, 44px) 20px 16px;
+  padding-top: max(env(safe-area-inset-top), 44px);
+  background: linear-gradient(180deg, rgba(124,111,255,0.1) 0%, transparent 100%);
+  border-bottom: 0.5px solid var(--border); flex-shrink: 0;
+}
+.header-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px; }
+.app-name { font-size: 11px; letter-spacing: 0.15em; color: var(--accent2); font-family: var(--mono); text-transform: uppercase; }
+.btn-reset { background: none; border: 0.5px solid var(--border); border-radius: 20px; padding: 5px 12px; color: var(--muted); font-size: 12px; cursor: pointer; }
+.btn-reset:active { opacity: 0.6; }
+.title { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; }
+.title span { color: var(--accent); }
+
+/* install banner */
+.install-banner {
+  display: none; align-items: center; gap: 12px;
+  background: rgba(124,111,255,0.12); border-bottom: 0.5px solid rgba(124,111,255,0.2);
+  padding: 12px 16px; cursor: pointer;
+}
+.install-banner.show { display: flex; }
+.install-banner-icon { font-size: 28px; flex-shrink: 0; }
+.install-banner-txt { flex: 1; }
+.install-banner-txt b { font-size: 14px; display: block; color: var(--text); }
+.install-banner-txt span { font-size: 12px; color: var(--muted); }
+.install-banner-btn { background: var(--accent); color: #fff; border: none; border-radius: var(--r-sm); padding: 8px 14px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.install-banner-close { color: var(--muted); font-size: 20px; padding: 4px; cursor: pointer; }
+
+/* ios install hint */
+.ios-hint {
+  display: none; background: rgba(124,111,255,0.1); border-bottom: 0.5px solid var(--border);
+  padding: 12px 16px; font-size: 13px; color: var(--muted); line-height: 1.6;
+}
+.ios-hint.show { display: block; }
+.ios-hint b { color: var(--text); }
+
+/* modal */
+.modal-overlay { position: fixed; inset: 0; background: rgba(10,10,16,0.92); backdrop-filter: blur(12px); display: flex; align-items: flex-end; justify-content: center; z-index: 100; transition: opacity 0.25s; }
+.modal-overlay.hidden { opacity: 0; pointer-events: none; }
+.modal-sheet { width: 100%; max-width: 430px; background: var(--surface); border-radius: 24px 24px 0 0; border-top: 0.5px solid var(--border); padding: 24px 24px max(env(safe-area-inset-bottom), 32px); animation: sheetUp 0.3s ease; }
+@keyframes sheetUp { from { transform: translateY(60px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+.modal-handle { width: 36px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 20px; }
+.modal-title { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+.modal-sub { font-size: 13px; color: var(--muted); line-height: 1.6; margin-bottom: 20px; }
+.modal-sub a { color: var(--accent2); text-decoration: none; border-bottom: 0.5px solid var(--accent2); }
+.key-input-wrap { position: relative; margin-bottom: 14px; }
+.key-input { width: 100%; padding: 13px 48px 13px 14px; background: var(--surface2); border: 0.5px solid var(--border); border-radius: var(--r); color: var(--text); font-family: var(--mono); font-size: 14px; -webkit-appearance: none; }
+.key-input:focus { outline: none; border-color: var(--accent); }
+.key-toggle { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--muted); font-size: 18px; cursor: pointer; padding: 4px; }
+.key-note { font-size: 12px; color: var(--muted); line-height: 1.6; margin-bottom: 20px; }
+.key-note b { color: var(--warn); }
+.btn-save-key { width: 100%; padding: 15px; border-radius: var(--r); background: var(--accent); border: none; color: #fff; font-size: 16px; font-weight: 700; cursor: pointer; }
+.btn-save-key:active { background: #6058e0; transform: scale(0.98); }
+.key-status { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: var(--r-sm); font-size: 13px; margin-bottom: 14px; }
+.key-status.ok { background: rgba(78,204,160,0.12); color: var(--success); }
+
+/* tabs */
+.tabs { display: flex; margin: 16px 20px 0; background: var(--surface); border-radius: var(--r); padding: 4px; border: 0.5px solid var(--border); }
+.tab-btn { flex: 1; padding: 10px; border-radius: 10px; border: none; background: none; color: var(--muted); font-size: 14px; cursor: pointer; font-family: var(--sans); transition: all 0.15s; }
+.tab-btn.active { background: var(--surface2); color: var(--text); font-weight: 500; }
+.tab-btn:active { opacity: 0.7; }
+
+.main { flex: 1; overflow-y: auto; padding: 20px; padding-bottom: calc(env(safe-area-inset-bottom) + 100px); }
+.panel { display: none; }
+.panel.active { display: block; }
+.section-label { font-size: 11px; letter-spacing: 0.1em; color: var(--muted); text-transform: uppercase; font-family: var(--mono); margin-bottom: 10px; }
+
+/* image */
+.upload-zone { border: 1.5px dashed rgba(124,111,255,0.4); border-radius: var(--r); padding: 28px 20px; text-align: center; cursor: pointer; background: rgba(124,111,255,0.04); margin-bottom: 16px; transition: all 0.15s; }
+.upload-zone:active, .upload-zone.drag { background: rgba(124,111,255,0.1); border-color: var(--accent); }
+.upload-icon { font-size: 36px; margin-bottom: 10px; }
+.upload-txt { font-size: 15px; color: var(--muted); }
+.upload-txt b { color: var(--text); }
+#file-input { display: none; }
+#img-preview { width: 100%; border-radius: var(--r); border: 0.5px solid var(--border); display: none; margin-bottom: 14px; }
+
+.scale-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--r); padding: 14px; margin-bottom: 14px; display: none; }
+.scale-card.show { display: block; }
+.scale-card-title { font-size: 12px; color: var(--muted); font-family: var(--mono); margin-bottom: 10px; }
+.scale-row { display: flex; align-items: center; gap: 10px; }
+.scale-row span { font-size: 13px; color: var(--muted); white-space: nowrap; }
+.scale-input { width: 80px; padding: 8px 10px; background: var(--surface2); border: 0.5px solid var(--border); border-radius: var(--r-sm); color: var(--text); font-family: var(--mono); font-size: 15px; text-align: center; -webkit-appearance: none; }
+.scale-input:focus { outline: none; border-color: var(--accent); }
+.unit-chips-sm { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip-sm { padding: 6px 12px; border-radius: 20px; border: 0.5px solid var(--border); background: var(--surface2); font-size: 13px; color: var(--muted); cursor: pointer; font-family: var(--mono); transition: all 0.15s; }
+.chip-sm.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.chip-sm:active { transform: scale(0.93); }
+
+.no-key-note { font-size: 12px; color: var(--warn); text-align: center; margin-bottom: 12px; display: none; }
+.no-key-note a { color: var(--warn); text-decoration: underline; cursor: pointer; }
+
+.btn-ai { width: 100%; padding: 14px; border-radius: var(--r); background: linear-gradient(135deg, #7c6fff, #a78bfa); border: none; color: #fff; font-size: 16px; font-weight: 700; cursor: pointer; font-family: var(--sans); margin-bottom: 10px; transition: all 0.15s; position: relative; overflow: hidden; }
+.btn-ai:disabled { background: var(--surface2); color: var(--muted); cursor: not-allowed; }
+.btn-ai:not(:disabled):active { transform: scale(0.98); }
+.btn-ai::after { content: ''; position: absolute; inset: 0; background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 60%); pointer-events: none; }
+
+.thinking { display: none; text-align: center; padding: 20px; }
+.thinking-inner { display: inline-flex; align-items: center; gap: 10px; font-size: 14px; color: var(--muted); }
+.spinner { width: 18px; height: 18px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; flex-shrink: 0; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.extracted-card { background: rgba(78,204,160,0.08); border: 0.5px solid rgba(78,204,160,0.2); border-radius: var(--r); padding: 12px 14px; margin-bottom: 14px; font-size: 13px; color: var(--success); line-height: 1.7; display: none; }
+.extracted-card.err { background: rgba(255,107,122,0.08); border-color: rgba(255,107,122,0.2); color: var(--danger); }
+
+/* manual */
+.unit-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+.chip { padding: 7px 16px; border-radius: 20px; border: 0.5px solid var(--border); background: var(--surface); font-size: 14px; color: var(--muted); cursor: pointer; transition: all 0.15s; font-family: var(--mono); }
+.chip.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 500; }
+.chip:active { transform: scale(0.95); }
+
+.coord-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--r); padding: 4px 0; margin-bottom: 10px; overflow: hidden; }
+.coord-row { display: flex; align-items: center; padding: 10px 14px; gap: 10px; border-bottom: 0.5px solid var(--border); }
+.coord-row:last-child { border-bottom: none; }
+.pt-badge { width: 28px; height: 28px; border-radius: 50%; background: rgba(124,111,255,0.18); color: var(--accent2); font-size: 11px; font-family: var(--mono); font-weight: 500; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.coord-inputs { display: flex; gap: 8px; flex: 1; }
+.coord-label-input { display: flex; flex-direction: column; flex: 1; }
+.axis-label { font-size: 10px; color: var(--muted); font-family: var(--mono); margin-bottom: 3px; padding-left: 2px; }
+.coord-input { background: var(--surface2); border: 0.5px solid var(--border); border-radius: var(--r-sm); color: var(--text); font-family: var(--mono); font-size: 16px; font-weight: 500; padding: 8px 10px; width: 100%; text-align: right; -webkit-appearance: none; }
+.coord-input:focus { outline: none; border-color: var(--accent); background: rgba(124,111,255,0.08); }
+.del-btn { width: 32px; height: 32px; border-radius: 50%; background: rgba(255,107,122,0.1); border: 0.5px solid rgba(255,107,122,0.2); color: var(--danger); font-size: 18px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
+.del-btn:active { transform: scale(0.9); }
+.del-placeholder { width: 32px; flex-shrink: 0; }
+.btn-add { width: 100%; padding: 13px; border-radius: var(--r); border: 1px dashed rgba(124,111,255,0.4); background: rgba(124,111,255,0.06); color: var(--accent2); font-size: 15px; cursor: pointer; font-family: var(--sans); transition: all 0.15s; }
+.btn-add:active { background: rgba(124,111,255,0.14); transform: scale(0.98); }
+
+.result-panel { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--r); padding: 20px; margin-bottom: 16px; display: none; }
+.result-panel.show { display: block; animation: slideUp 0.3s ease; }
+@keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.result-main { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+.result-num { font-family: var(--mono); font-size: 42px; font-weight: 500; color: var(--success); letter-spacing: -0.02em; }
+.result-unit-label { font-family: var(--mono); font-size: 18px; color: var(--muted); }
+.result-converts { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+.convert-chip { background: var(--surface2); border-radius: var(--r-sm); padding: 8px 14px; display: flex; flex-direction: column; gap: 2px; }
+.convert-label { font-size: 10px; color: var(--muted); font-family: var(--mono); }
+.convert-val { font-size: 15px; font-family: var(--mono); font-weight: 500; color: var(--text); }
+.canvas-wrap { border: 0.5px solid var(--border); border-radius: var(--r); overflow: hidden; margin-bottom: 20px; background: var(--surface); display: none; }
+.canvas-wrap.show { display: block; animation: slideUp 0.3s ease 0.1s both; }
+canvas { display: block; width: 100%; }
+.err-msg { color: var(--danger); font-size: 13px; margin-bottom: 12px; display: none; font-family: var(--mono); }
+.note { font-size: 11px; color: var(--muted); margin-bottom: 16px; line-height: 1.6; }
+
+.bottom-bar { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 430px; background: rgba(15,15,19,0.92); backdrop-filter: blur(20px); border-top: 0.5px solid var(--border); padding: 12px 20px max(env(safe-area-inset-bottom), 16px); }
+.bottom-row { display: flex; gap: 10px; }
+.btn-calc { flex: 1; padding: 16px; border-radius: var(--r); background: var(--accent); border: none; color: #fff; font-size: 16px; font-weight: 700; cursor: pointer; font-family: var(--sans); transition: all 0.15s; position: relative; overflow: hidden; }
+.btn-calc:active { transform: scale(0.98); background: #6058e0; }
+.btn-calc::after { content: ''; position: absolute; inset: 0; background: linear-gradient(135deg, rgba(255,255,255,0.12) 0%, transparent 60%); pointer-events: none; }
+.btn-key { width: 52px; height: 52px; border-radius: var(--r); background: var(--surface); border: 0.5px solid var(--border); color: var(--muted); font-size: 22px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.btn-key.set { border-color: var(--success); color: var(--success); }
+.btn-key:active { opacity: 0.7; }
+</style>
+</head>
+<body>
+
+<!-- API Key Modal -->
+<div class="modal-overlay hidden" id="key-modal">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">🔑 APIキーの設定</div>
+    <div class="modal-sub">
+      Anthropic の API キーを入力するとAI写真読み取りが使えます。キーは<b>このデバイスにのみ</b>保存されます。<br><br>
+      キーをお持ちでない方は <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a> で取得できます。
+    </div>
+    <div id="key-status-bar" style="display:none"></div>
+    <div class="key-input-wrap">
+      <input class="key-input" type="password" id="key-input" placeholder="sk-ant-..." autocomplete="off" spellcheck="false">
+      <button class="key-toggle" onclick="toggleKeyVis()">👁</button>
+    </div>
+    <div class="key-note"><b>⚠ 注意：</b> API利用は従量課金です（通常1回数円程度）。キーは他人に見せないでください。</div>
+    <button class="btn-save-key" onclick="saveKey()">保存してAI読み取りを使う</button>
+  </div>
+</div>
+
+<!-- Install Banner (Android Chrome) -->
+<div class="install-banner" id="install-banner">
+  <div class="install-banner-icon">📐</div>
+  <div class="install-banner-txt">
+    <b>ホーム画面に追加</b>
+    <span>アプリとして使えます</span>
+  </div>
+  <button class="install-banner-btn" onclick="installApp()">追加</button>
+  <span class="install-banner-close" onclick="dismissBanner()">✕</span>
+</div>
+
+<!-- iOS hint -->
+<div class="ios-hint" id="ios-hint">
+  📱 <b>ホーム画面に追加：</b> Safariの共有ボタン（↑）→「ホーム画面に追加」でアプリとして使えます
+</div>
+
+<div class="header">
+  <div class="header-top">
+    <span class="app-name">Area Calculator</span>
+    <button class="btn-reset" onclick="clearAll()">リセット</button>
+  </div>
+  <div class="title">座標<span>面積</span>計算</div>
+</div>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('img')">📷 写真から読み取り</button>
+  <button class="tab-btn" onclick="switchTab('manual')">✏️ 手動入力</button>
+</div>
+
+<div class="main">
+  <!-- IMAGE PANEL -->
+  <div class="panel active" id="panel-img">
+    <div class="no-key-note" id="no-key-note">
+      AIを使うには <a onclick="openKeyModal()">APIキーの設定</a> が必要です
+    </div>
+    <div class="upload-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+      <div class="upload-icon">📷</div>
+      <div class="upload-txt"><b>タップして写真を選択</b><br>図面・スケッチ・測量データ</div>
+    </div>
+    <input type="file" id="file-input" accept="image/*" capture="environment" onchange="handleFile(this.files[0])">
+    <img id="img-preview" alt="プレビュー">
+
+    <div class="scale-card" id="scale-card">
+      <div class="scale-card-title">縮尺（図に記載がある場合）</div>
+      <div class="scale-row" style="margin-bottom:10px">
+        <span>1 :</span>
+        <input class="scale-input" type="number" id="scale-val" value="1" min="1">
+        <div class="unit-chips-sm" id="scale-unit-chips">
+          <div class="chip-sm active" data-u="m" onclick="setScaleUnit(this)">m</div>
+          <div class="chip-sm" data-u="cm" onclick="setScaleUnit(this)">cm</div>
+          <div class="chip-sm" data-u="mm" onclick="setScaleUnit(this)">mm</div>
+          <div class="chip-sm" data-u="none" onclick="setScaleUnit(this)">なし</div>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn-ai" id="btn-ai" disabled onclick="readFromImage()">✨ AIで座標を読み取る</button>
+    <div class="thinking" id="thinking"><div class="thinking-inner"><div class="spinner"></div>AIが解析中...</div></div>
+    <div class="extracted-card" id="extracted-card"></div>
+  </div>
+
+  <!-- MANUAL PANEL -->
+  <div class="panel" id="panel-manual">
+    <div class="section-label" style="margin-bottom:10px">単位</div>
+    <div class="unit-chips">
+      <div class="chip active" data-unit="m" onclick="setUnit(this)">m</div>
+      <div class="chip" data-unit="cm" onclick="setUnit(this)">cm</div>
+      <div class="chip" data-unit="mm" onclick="setUnit(this)">mm</div>
+      <div class="chip" data-unit="ft" onclick="setUnit(this)">ft</div>
+      <div class="chip" data-unit="" onclick="setUnit(this)">なし</div>
+    </div>
+    <div class="section-label">頂点座標</div>
+    <div class="note">頂点を入力した順に結んで面積を計算します</div>
+    <div id="err-msg" class="err-msg"></div>
+    <div id="coord-list"></div>
+    <button class="btn-add" onclick="addPoint()">＋ 点を追加</button>
+  </div>
+
+  <!-- RESULT (shared) -->
+  <div class="result-panel" id="result-panel">
+    <div class="section-label" style="margin-bottom:8px">計算結果</div>
+    <div class="result-main">
+      <span class="result-num" id="res-num">0</span>
+      <span class="result-unit-label" id="res-unit-lbl">m²</span>
+    </div>
+    <div class="result-converts" id="res-converts"></div>
+  </div>
+  <div class="canvas-wrap" id="canvas-wrap"><canvas id="preview-canvas" height="240"></canvas></div>
+</div>
+
+<div class="bottom-bar">
+  <div class="bottom-row">
+    <button class="btn-calc" onclick="calculate()">面積を計算する</button>
+    <button class="btn-key" id="btn-key-icon" onclick="openKeyModal()">🔑</button>
+  </div>
+</div>
+
+<script>
+// ── state ──
+let points=[], idCounter=0, currentUnit='m', scaleUnit='m';
+let imageBase64=null, apiKey='';
+let deferredPrompt=null;
+
+// ── PWA install ──
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault(); deferredPrompt = e;
+  document.getElementById('install-banner').classList.add('show');
+});
+window.addEventListener('appinstalled', () => {
+  document.getElementById('install-banner').classList.remove('show');
+});
+function installApp() {
+  if (deferredPrompt) { deferredPrompt.prompt(); deferredPrompt.userChoice.then(()=>{ deferredPrompt=null; document.getElementById('install-banner').classList.remove('show'); }); }
+}
+function dismissBanner() { document.getElementById('install-banner').classList.remove('show'); }
+
+// iOS Safari detection
+const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+const isInStandalone = window.navigator.standalone;
+if (isIos && !isInStandalone && !localStorage.getItem('ios-hint-dismissed')) {
+  document.getElementById('ios-hint').classList.add('show');
+  setTimeout(()=>{ document.getElementById('ios-hint').classList.remove('show'); localStorage.setItem('ios-hint-dismissed','1'); }, 8000);
+}
+
+// Service Worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(()=>{});
+}
+
+// ── init ──
+(function init() {
+  apiKey = localStorage.getItem('anthropic_api_key') || '';
+  updateKeyUI();
+  addPoint(); addPoint(); addPoint();
+})();
+
+// ── key modal ──
+function openKeyModal() {
+  document.getElementById('key-modal').classList.remove('hidden');
+  document.getElementById('key-input').value = apiKey;
+  updateKeyStatusBar();
+}
+function closeKeyModal() { document.getElementById('key-modal').classList.add('hidden'); }
+document.getElementById('key-modal').addEventListener('click', function(e){ if(e.target===this) closeKeyModal(); });
+function toggleKeyVis() { const i=document.getElementById('key-input'); i.type=i.type==='password'?'text':'password'; }
+function saveKey() {
+  const val = document.getElementById('key-input').value.trim();
+  if (val && !val.startsWith('sk-ant-')) { alert('APIキーは sk-ant- から始まります'); return; }
+  apiKey = val;
+  val ? localStorage.setItem('anthropic_api_key', val) : localStorage.removeItem('anthropic_api_key');
+  updateKeyUI(); updateKeyStatusBar(); closeKeyModal();
+}
+function updateKeyUI() {
+  const icon=document.getElementById('btn-key-icon');
+  const note=document.getElementById('no-key-note');
+  const btnAi=document.getElementById('btn-ai');
+  if (apiKey) { icon.classList.add('set'); icon.textContent='✅'; note.style.display='none'; if(imageBase64) btnAi.disabled=false; }
+  else { icon.classList.remove('set'); icon.textContent='🔑'; note.style.display='block'; btnAi.disabled=true; }
+}
+function updateKeyStatusBar() {
+  const bar=document.getElementById('key-status-bar');
+  if (apiKey) { bar.className='key-status ok'; bar.textContent='✓ APIキーが設定されています'; bar.style.display='flex'; }
+  else { bar.style.display='none'; }
+}
+
+// ── tabs ──
+function switchTab(t) {
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',(t==='img'&&i===0)||(t==='manual'&&i===1)));
+  document.getElementById('panel-img').classList.toggle('active',t==='img');
+  document.getElementById('panel-manual').classList.toggle('active',t==='manual');
+}
+
+// ── image ──
+function handleFile(file) {
+  if (!file) return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    imageBase64=e.target.result.split(',')[1];
+    const img=document.getElementById('img-preview');
+    img.src=e.target.result; img.style.display='block';
+    document.getElementById('scale-card').classList.add('show');
+    document.getElementById('extracted-card').style.display='none';
+    if(apiKey) document.getElementById('btn-ai').disabled=false;
+  };
+  reader.readAsDataURL(file);
+}
+const dz=document.getElementById('drop-zone');
+dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('drag');});
+dz.addEventListener('dragleave',()=>dz.classList.remove('drag'));
+dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('drag');handleFile(e.dataTransfer.files[0]);});
+
+function setScaleUnit(el) {
+  document.querySelectorAll('#scale-unit-chips .chip-sm').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active'); scaleUnit=el.dataset.u;
+}
+
+async function readFromImage() {
+  if (!imageBase64||!apiKey) return;
+  const btn=document.getElementById('btn-ai'), thinking=document.getElementById('thinking'), card=document.getElementById('extracted-card');
+  btn.disabled=true; thinking.style.display='block'; card.style.display='none';
+  document.getElementById('result-panel').classList.remove('show');
+  document.getElementById('canvas-wrap').classList.remove('show');
+
+  const scaleVal=parseFloat(document.getElementById('scale-val').value)||1;
+  const prompt=`この画像に描かれた図形・図面・測量データから、多角形の頂点座標値を全て読み取ってください。\n\n以下のJSON形式のみで回答してください。他の文字・記号・バッククォートは一切不要です：\n{"points":[{"x":数値,"y":数値},...],"unit":"単位","notes":"補足"}\n\nルール：座標軸がある場合はその値を使う。寸法線がある場合はそこから読み取る。座標軸がない場合は図形の比率から適切な数値を推定する。必ず3点以上。頂点は多角形の輪郭に沿って順番に。`;
+
+  try {
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:'image/jpeg',data:imageBase64}},{type:'text',text:prompt}]}]})
+    });
+    if(!res.ok){const err=await res.json();throw new Error(err.error?.message||`HTTP ${res.status}`);}
+    const data=await res.json();
+    const text=data.content?.map(c=>c.text||'').join('')||'';
+    const parsed=JSON.parse(text.replace(/```json|```/g,'').trim());
+    if(!parsed.points||parsed.points.length<3) throw new Error('座標が3点未満です');
+
+    const scaled=parsed.points.map(p=>({x:p.x*scaleVal,y:p.y*scaleVal}));
+    const unitLabel=scaleUnit!=='none'?scaleUnit:(parsed.unit||'');
+    card.className='extracted-card'; card.style.display='block';
+    card.innerHTML=`<b>✓ ${scaled.length}点の座標を読み取りました</b><br>`+scaled.map((p,i)=>`P${i+1}(${p.x}, ${p.y})`).join('　')+(parsed.notes?`<br>💡 ${parsed.notes}`:'');
+
+    points=scaled.map((p,i)=>({id:i,x:String(p.x),y:String(p.y)})); idCounter=scaled.length;
+    currentUnit=unitLabel;
+    switchTab('manual');
+    const matchChip=[...document.querySelectorAll('.unit-chips .chip')].find(c=>c.dataset.unit===unitLabel);
+    if(matchChip){document.querySelectorAll('.unit-chips .chip').forEach(c=>c.classList.remove('active'));matchChip.classList.add('active');}
+    renderList(); calculate();
+  } catch(e) {
+    card.className='extracted-card err'; card.style.display='block';
+    card.innerHTML=`⚠ 読み取り失敗：${e.message}<br>手動入力タブで座標を入力してください。`;
+  } finally { btn.disabled=false; thinking.style.display='none'; }
+}
+
+// ── manual ──
+function setUnit(el) { document.querySelectorAll('.unit-chips .chip').forEach(c=>c.classList.remove('active')); el.classList.add('active'); currentUnit=el.dataset.unit; }
+function addPoint(x='',y='') { points.push({id:idCounter++,x,y}); renderList(); }
+function removePoint(id) { if(points.length<=3)return; points=points.filter(p=>p.id!==id); renderList(); }
+function updateVal(id,axis,val) { const p=points.find(pt=>pt.id===id); if(p) p[axis]=val; }
+function renderList() {
+  const list=document.getElementById('coord-list'); list.innerHTML='';
+  points.forEach((p,i)=>{
+    const div=document.createElement('div'); div.className='coord-card';
+    div.innerHTML=`<div class="coord-row"><div class="pt-badge">P${i+1}</div><div class="coord-inputs"><div class="coord-label-input"><span class="axis-label">X</span><input class="coord-input" type="number" inputmode="decimal" value="${p.x}" placeholder="0" onchange="updateVal(${p.id},'x',this.value)" oninput="updateVal(${p.id},'x',this.value)"></div><div class="coord-label-input"><span class="axis-label">Y</span><input class="coord-input" type="number" inputmode="decimal" value="${p.y}" placeholder="0" onchange="updateVal(${p.id},'y',this.value)" oninput="updateVal(${p.id},'y',this.value)"></div></div>${points.length>3?`<button class="del-btn" onclick="removePoint(${p.id})">×</button>`:`<div class="del-placeholder"></div>`}</div>`;
+    list.appendChild(div);
+  });
+}
+
+// ── calc ──
+function shoelace(pts){let a=0,n=pts.length;for(let i=0;i<n;i++){const j=(i+1)%n;a+=pts[i].x*pts[j].y-pts[j].x*pts[i].y;}return Math.abs(a)/2;}
+function calculate() {
+  const err=document.getElementById('err-msg');
+  const coords=points.map(p=>({x:parseFloat(p.x),y:parseFloat(p.y)}));
+  if(coords.some(c=>isNaN(c.x)||isNaN(c.y))){err.textContent='⚠ 全ての座標値を入力してください';err.style.display='block';document.getElementById('result-panel').classList.remove('show');document.getElementById('canvas-wrap').classList.remove('show');return;}
+  if(coords.length<3){err.textContent='⚠ 3点以上の座標が必要です';err.style.display='block';return;}
+  err.style.display='none';
+  const area=shoelace(coords), u=currentUnit, u2=u?u+'²':'';
+  document.getElementById('res-num').textContent=area>=10000?area.toLocaleString('ja-JP',{maximumFractionDigits:3}):parseFloat(area.toFixed(5));
+  document.getElementById('res-unit-lbl').textContent=u2;
+  const cv=document.getElementById('res-converts'); cv.innerHTML='';
+  if(u==='m') cv.innerHTML=`<div class="convert-chip"><span class="convert-label">ヘクタール</span><span class="convert-val">${(area/10000).toFixed(5)} ha</span></div><div class="convert-chip"><span class="convert-label">坪</span><span class="convert-val">${(area/3.305785).toFixed(3)} 坪</span></div><div class="convert-chip"><span class="convert-label">cm²</span><span class="convert-val">${(area*10000).toLocaleString('ja-JP',{maximumFractionDigits:0})}</span></div>`;
+  else if(u==='cm') cv.innerHTML=`<div class="convert-chip"><span class="convert-label">m²</span><span class="convert-val">${(area/10000).toFixed(6)}</span></div><div class="convert-chip"><span class="convert-label">mm²</span><span class="convert-val">${(area*100).toLocaleString('ja-JP',{maximumFractionDigits:0})}</span></div>`;
+  else if(u==='ft') cv.innerHTML=`<div class="convert-chip"><span class="convert-label">m²</span><span class="convert-val">${(area*0.0929).toFixed(4)}</span></div>`;
+  document.getElementById('result-panel').classList.add('show');
+  document.getElementById('canvas-wrap').classList.add('show');
+  drawPreview(coords);
+  document.getElementById('result-panel').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function drawPreview(coords){
+  const canvas=document.getElementById('preview-canvas');
+  const W=canvas.parentElement.clientWidth||370;
+  canvas.width=W; canvas.height=240;
+  const ctx=canvas.getContext('2d');
+  const xs=coords.map(c=>c.x),ys=coords.map(c=>c.y);
+  const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
+  const pad=44,sx=(W-pad*2)/(maxX-minX||1),sy=(240-pad*2)/(maxY-minY||1),sc=Math.min(sx,sy);
+  const tx=x=>pad+(x-minX)*sc, ty=y=>240-pad-(y-minY)*sc;
+  ctx.clearRect(0,0,W,240);
+  ctx.strokeStyle='rgba(255,255,255,0.05)';ctx.lineWidth=0.5;
+  for(let i=0;i<=5;i++){const gx=pad+i*(W-pad*2)/5;ctx.beginPath();ctx.moveTo(gx,pad);ctx.lineTo(gx,240-pad);ctx.stroke();const gy=pad+i*(240-pad*2)/5;ctx.beginPath();ctx.moveTo(pad,gy);ctx.lineTo(W-pad,gy);ctx.stroke();}
+  ctx.beginPath();coords.forEach((c,i)=>i===0?ctx.moveTo(tx(c.x),ty(c.y)):ctx.lineTo(tx(c.x),ty(c.y)));
+  ctx.closePath();ctx.fillStyle='rgba(78,204,160,0.15)';ctx.fill();ctx.strokeStyle='#4ecca0';ctx.lineWidth=2;ctx.stroke();
+  coords.forEach((c,i)=>{const px=tx(c.x),py=ty(c.y);ctx.beginPath();ctx.arc(px,py,5,0,Math.PI*2);ctx.fillStyle='#4ecca0';ctx.fill();ctx.fillStyle='rgba(240,238,255,0.85)';ctx.font='500 11px DM Mono,monospace';ctx.fillText(`P${i+1}(${parseFloat(c.x.toFixed(2))},${parseFloat(c.y.toFixed(2))})`,px+8,py-6);});
+}
+function clearAll(){
+  points=[];idCounter=0;imageBase64=null;
+  document.getElementById('result-panel').classList.remove('show');
+  document.getElementById('canvas-wrap').classList.remove('show');
+  document.getElementById('err-msg').style.display='none';
+  document.getElementById('img-preview').style.display='none';
+  document.getElementById('scale-card').classList.remove('show');
+  document.getElementById('extracted-card').style.display='none';
+  document.getElementById('btn-ai').disabled=true;
+  switchTab('manual');
+  addPoint();addPoint();addPoint();
+}
+</script>
+</body>
+</html>

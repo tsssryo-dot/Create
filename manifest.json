@@ -1,0 +1,18 @@
+{
+  "name": "座標面積計算",
+  "short_name": "面積計算",
+  "description": "座標から面積を計算・AI写真読み取り対応",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0f0f13",
+  "theme_color": "#0f0f13",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

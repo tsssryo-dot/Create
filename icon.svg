@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#0f0f13"/>
+  <rect width="512" height="512" rx="112" fill="url(#g)"/>
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1a1830"/>
+      <stop offset="100%" stop-color="#0f0f13"/>
+    </linearGradient>
+  </defs>
+  <!-- polygon shape -->
+  <polygon points="256,80 420,180 380,350 180,390 100,230" fill="rgba(78,204,160,0.18)" stroke="#4ecca0" stroke-width="14" stroke-linejoin="round"/>
+  <!-- dots -->
+  <circle cx="256" cy="80" r="16" fill="#7c6fff"/>
+  <circle cx="420" cy="180" r="16" fill="#7c6fff"/>
+  <circle cx="380" cy="350" r="16" fill="#7c6fff"/>
+  <circle cx="180" cy="390" r="16" fill="#7c6fff"/>
+  <circle cx="100" cy="230" r="16" fill="#7c6fff"/>
+  <!-- ruler tick -->
+  <text x="256" y="470" text-anchor="middle" font-family="monospace" font-size="52" font-weight="bold" fill="#7c6fff" opacity="0.7">m²</text>
+</svg>
