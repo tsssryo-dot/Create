@@ -1,0 +1,1134 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>石灰改良管理 Pro</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #22263a;
+    --border: #2e3350;
+    --accent: #f5a623;
+    --accent2: #e8742a;
+    --accent-glow: rgba(245,166,35,0.18);
+    --text: #eef0f8;
+    --text-dim: #7a82a8;
+    --text-muted: #4a5070;
+    --green: #2fcc8b;
+    --red: #ff5c5c;
+    --blue: #4a9eff;
+    --radius: 14px;
+    --radius-sm: 8px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Noto Sans JP', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 15px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ─── HEADER ─── */
+  header {
+    background: linear-gradient(135deg, #1a1d27 0%, #12151e 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .logo-icon {
+    width: 36px;
+    height: 36px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    box-shadow: 0 0 16px var(--accent-glow);
+  }
+
+  .logo-text {
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+  }
+
+  .logo-text span {
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 500;
+    background: var(--accent-glow);
+    border: 1px solid rgba(245,166,35,0.3);
+    padding: 1px 6px;
+    border-radius: 4px;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+
+  /* ─── TABS ─── */
+  .tabs {
+    display: flex;
+    gap: 0;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .tab {
+    flex: 1;
+    min-width: 80px;
+    padding: 12px 8px;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-dim);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+    white-space: nowrap;
+    user-select: none;
+  }
+
+  .tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+
+  .tab-icon { display: block; font-size: 18px; margin-bottom: 2px; }
+
+  /* ─── PAGES ─── */
+  .page { display: none; padding: 16px; max-width: 680px; margin: 0 auto; }
+  .page.active { display: block; }
+
+  /* ─── SECTION CARD ─── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px;
+    margin-bottom: 14px;
+  }
+
+  .card-title {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--accent);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .card-title::before {
+    content: '';
+    display: inline-block;
+    width: 3px;
+    height: 14px;
+    background: var(--accent);
+    border-radius: 2px;
+  }
+
+  /* ─── INPUTS ─── */
+  .field-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .field.full { grid-column: 1 / -1; }
+
+  label {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-dim);
+    letter-spacing: 0.3px;
+  }
+
+  .unit-label { color: var(--text-muted); font-weight: 400; margin-left: 3px; }
+
+  .input-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  input[type=number], input[type=text], select, textarea {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 15px;
+    padding: 10px 12px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    -webkit-appearance: none;
+  }
+
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+  }
+
+  .input-unit {
+    position: absolute;
+    right: 10px;
+    font-size: 11px;
+    color: var(--text-muted);
+    pointer-events: none;
+    font-family: 'Noto Sans JP', sans-serif;
+  }
+
+  input[type=number] { padding-right: 42px; }
+
+  /* ─── RESULT CARDS ─── */
+  .result-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .result-item {
+    background: var(--surface2);
+    border-radius: var(--radius-sm);
+    padding: 14px 16px;
+    border-left: 3px solid var(--border);
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s;
+  }
+
+  .result-item.primary {
+    border-left-color: var(--accent);
+    background: linear-gradient(135deg, rgba(245,166,35,0.08), var(--surface2));
+  }
+
+  .result-item.green { border-left-color: var(--green); }
+  .result-item.blue { border-left-color: var(--blue); }
+
+  .result-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+    font-weight: 500;
+  }
+
+  .result-value {
+    font-family: 'DM Mono', monospace;
+    font-size: 26px;
+    font-weight: 500;
+    letter-spacing: -0.5px;
+    line-height: 1;
+  }
+
+  .result-value.primary-val { color: var(--accent); }
+  .result-value.green-val { color: var(--green); }
+  .result-value.blue-val { color: var(--blue); }
+
+  .result-unit {
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--text-muted);
+    margin-left: 4px;
+  }
+
+  /* ─── BUTTONS ─── */
+  .btn-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 14px;
+  }
+
+  .btn {
+    flex: 1;
+    padding: 13px 16px;
+    border-radius: var(--radius-sm);
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    border: none;
+    transition: all 0.18s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #000;
+    box-shadow: 0 4px 14px rgba(245,166,35,0.35);
+  }
+
+  .btn-primary:active { transform: scale(0.97); }
+
+  .btn-secondary {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+
+  .btn-secondary:active { transform: scale(0.97); }
+
+  .btn-danger {
+    background: rgba(255,92,92,0.1);
+    color: var(--red);
+    border: 1px solid rgba(255,92,92,0.25);
+  }
+
+  .btn-sm {
+    padding: 7px 12px;
+    font-size: 12px;
+    flex: none;
+  }
+
+  /* ─── BADGES ─── */
+  .badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 20px;
+    background: var(--accent-glow);
+    color: var(--accent);
+    border: 1px solid rgba(245,166,35,0.3);
+  }
+
+  /* ─── FORMULA DISPLAY ─── */
+  .formula-box {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+    line-height: 1.8;
+    margin-top: 10px;
+  }
+
+  .formula-box .f-accent { color: var(--accent); font-weight: 500; }
+  .formula-box .f-val { color: var(--text); }
+
+  /* ─── HISTORY LIST ─── */
+  .history-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    position: relative;
+    animation: slideIn 0.25s ease;
+  }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .history-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 8px;
+  }
+
+  .history-project {
+    font-weight: 700;
+    font-size: 14px;
+  }
+
+  .history-date {
+    font-size: 11px;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  .history-values {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  .hv-item {
+    background: var(--surface2);
+    border-radius: 6px;
+    padding: 6px 8px;
+  }
+
+  .hv-label { font-size: 10px; color: var(--text-muted); }
+  .hv-val { font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 500; }
+
+  .history-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 10px;
+  }
+
+  /* ─── EMPTY STATE ─── */
+  .empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-muted);
+  }
+
+  .empty-icon { font-size: 42px; margin-bottom: 10px; }
+  .empty-text { font-size: 14px; }
+
+  /* ─── TOAST ─── */
+  #toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--green);
+    color: #000;
+    font-weight: 700;
+    font-size: 13px;
+    padding: 10px 20px;
+    border-radius: 30px;
+    transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    z-index: 999;
+    white-space: nowrap;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  }
+
+  #toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* ─── PRINT ─── */
+  @media print {
+    body { background: #fff; color: #000; font-size: 12px; }
+    header, .tabs, .btn-row, .btn, #toast, .page:not(#page-calc) { display: none !important; }
+    #page-calc { display: block !important; max-width: 100%; }
+    .card { border: 1px solid #ccc; background: #fff; page-break-inside: avoid; }
+    .result-value { color: #000 !important; }
+    .print-table { display: block !important; }
+    .print-hide { display: none !important; }
+    .print-header { display: flex !important; }
+  }
+
+  .print-table { display: none; }
+  .print-header { display: none; }
+
+  /* ─── PRINT TABLE ─── */
+  .pt {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+    margin-top: 10px;
+  }
+
+  .pt th {
+    background: #f0f0f0;
+    border: 1px solid #bbb;
+    padding: 5px 8px;
+    text-align: left;
+    font-weight: 700;
+  }
+
+  .pt td {
+    border: 1px solid #bbb;
+    padding: 5px 8px;
+  }
+
+  .pt .right { text-align: right; font-family: monospace; }
+
+  /* ─── MODE BUTTONS ─── */
+  .mode-btn {
+    flex: 1;
+    padding: 10px 10px;
+    border-radius: var(--radius-sm);
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.5;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text-dim);
+    transition: all 0.2s;
+    text-align: center;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .mode-btn.mode-active {
+    background: var(--accent-glow);
+    border-color: rgba(245,166,35,0.5);
+    color: var(--accent);
+  }
+
+  /* ─── SCROLLBAR ─── */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* ─── DIVIDER ─── */
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 14px 0;
+  }
+
+  /* ─── SELECT ─── */
+  select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%237a82a8' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 32px;
+    cursor: pointer;
+  }
+
+  /* ─── GUIDE ─── */
+  .guide-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .guide-item:last-child { border-bottom: none; }
+  .guide-num {
+    width: 24px;
+    height: 24px;
+    background: var(--accent-glow);
+    border: 1px solid rgba(245,166,35,0.4);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent);
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .guide-body strong { font-weight: 700; }
+  .guide-body p { font-size: 13px; color: var(--text-dim); margin-top: 2px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">🏗</div>
+    <div class="logo-text">石灰改良管理<span>Pro</span></div>
+  </div>
+  <div id="save-status" style="font-size:11px;color:var(--text-muted)"></div>
+</header>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('calc')">
+    <span class="tab-icon">⚡</span>計算
+  </div>
+  <div class="tab" onclick="switchTab('history')">
+    <span class="tab-icon">📋</span>履歴
+  </div>
+  <div class="tab" onclick="switchTab('guide')">
+    <span class="tab-icon">📖</span>使い方
+  </div>
+</div>
+
+<!-- ─── 計算ページ ─── -->
+<div id="page-calc" class="page active">
+
+  <!-- Print header (print only) -->
+  <div class="print-header" style="margin-bottom:16px;align-items:center;justify-content:space-between">
+    <div>
+      <div style="font-size:18px;font-weight:900">石灰改良管理表</div>
+      <div id="print-project-name" style="font-size:13px;color:#444;margin-top:2px"></div>
+    </div>
+    <div style="text-align:right;font-size:11px;color:#666">
+      <div id="print-date"></div>
+      <div>石灰改良管理 Pro</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">施工情報</div>
+    <div class="field" style="margin-bottom:10px">
+      <label>工事・現場名</label>
+      <input type="text" id="project-name" placeholder="例：○○道路改良工事 A区間" oninput="autoSave()">
+    </div>
+    <div class="field-grid">
+      <div class="field">
+        <label>施工日</label>
+        <input type="text" id="work-date" placeholder="例：2025/06/03" oninput="autoSave()">
+      </div>
+      <div class="field">
+        <label>担当者</label>
+        <input type="text" id="worker" placeholder="例：山田太郎" oninput="autoSave()">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">入力パラメータ</div>
+    <div class="field-grid">
+      <div class="field">
+        <label>石灰袋数 <span class="unit-label">袋</span></label>
+        <div class="input-wrap">
+          <input type="number" id="bags" placeholder="22" min="0" oninput="calculate(); autoSave()">
+          <span class="input-unit">袋</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>1袋重量 <span class="unit-label">kg</span></label>
+        <div class="input-wrap">
+          <input type="number" id="bag-weight" placeholder="1000" min="0" step="any" oninput="calculate(); autoSave()">
+          <span class="input-unit">kg</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>ほぐし率</label>
+        <div class="input-wrap">
+          <input type="number" id="loosen-rate" placeholder="1.25" min="0.01" step="0.01" oninput="calcConvertedAdd(); calculate(); autoSave()">
+          <span class="input-unit" style="right:6px">—</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div style="margin-bottom:10px">
+      <div style="font-size:11px;font-weight:700;color:var(--text-dim);letter-spacing:0.5px;margin-bottom:8px">添加量の入力方式</div>
+      <div style="display:flex;gap:8px">
+        <button id="mode-btn-loose" class="mode-btn mode-active" onclick="setAddMode('loose')">
+          ほぐし土量基準<br><span style="font-size:10px;font-weight:400">kg/m³（ほぐし）</span>
+        </button>
+        <button id="mode-btn-natural" class="mode-btn" onclick="setAddMode('natural')">
+          地山土量基準<br><span style="font-size:10px;font-weight:400">kg/m³（地山）→ 自動換算</span>
+        </button>
+      </div>
+    </div>
+
+    <div id="mode-loose-fields">
+      <div class="field">
+        <label>設計添加量（ほぐし土量基準） <span class="unit-label">kg/m³</span></label>
+        <div class="input-wrap">
+          <input type="number" id="design-add" placeholder="24" min="0" step="any" oninput="calculate(); autoSave()">
+          <span class="input-unit">kg/m³</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="mode-natural-fields" style="display:none">
+      <div class="field" style="margin-bottom:10px">
+        <label>設計添加量（地山土量基準） <span class="unit-label">kg/m³</span></label>
+        <div class="input-wrap">
+          <input type="number" id="design-add-natural" placeholder="例：19.2" min="0" step="any" oninput="calcConvertedAdd(); calculate(); autoSave()">
+          <span class="input-unit">kg/m³</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>換算後 設計添加量（ほぐし土量基準）<span style="color:var(--accent);margin-left:6px;font-size:10px">▶ 自動計算</span></label>
+        <div class="input-wrap">
+          <input type="number" id="design-add-converted" placeholder="—" readonly
+            style="background:rgba(245,166,35,0.07);border-color:rgba(245,166,35,0.35);color:var(--accent);font-weight:500;padding-right:52px">
+          <span class="input-unit">kg/m³</span>
+        </div>
+        <div style="font-size:10px;color:var(--text-muted);margin-top:3px">= 地山基準添加量 ÷ ほぐし率</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">計算結果</div>
+    <div class="result-grid">
+      <div class="result-item primary">
+        <div class="result-label">石灰使用量</div>
+        <div class="result-value primary-val"><span id="r-lime">—</span><span class="result-unit">kg</span></div>
+      </div>
+      <div class="result-item green">
+        <div class="result-label">施工可能ほぐし土量</div>
+        <div class="result-value green-val"><span id="r-loose">—</span><span class="result-unit">m³</span></div>
+      </div>
+      <div class="result-item blue">
+        <div class="result-label">施工可能地山土量</div>
+        <div class="result-value blue-val"><span id="r-natural">—</span><span class="result-unit">m³</span></div>
+      </div>
+    </div>
+
+    <div class="formula-box print-hide" id="formula-display">
+      <div style="color:var(--text-muted);font-size:11px;margin-bottom:6px">▶ 計算式</div>
+      <div id="f1">石灰使用量 = <span class="f-accent">袋数 × 1袋重量</span></div>
+      <div id="f2">ほぐし土量 = <span class="f-accent">石灰使用量 ÷ 設計添加量</span></div>
+      <div id="f3">地山土量　= <span class="f-accent">ほぐし土量 ÷ ほぐし率</span></div>
+      <div id="f4" style="display:none"></div>
+    </div>
+
+    <!-- Print table -->
+    <div class="print-table" id="print-table">
+      <table class="pt">
+        <tr>
+          <th colspan="2">入力パラメータ</th>
+          <th colspan="2">計算結果</th>
+        </tr>
+        <tr>
+          <td>石灰袋数</td>
+          <td class="right" id="pt-bags">—</td>
+          <td>石灰使用量</td>
+          <td class="right" id="pt-lime">—</td>
+        </tr>
+        <tr>
+          <td>1袋重量</td>
+          <td class="right" id="pt-bw">—</td>
+          <td>施工可能ほぐし土量</td>
+          <td class="right" id="pt-loose">—</td>
+        </tr>
+        <tr>
+          <td>設計添加量</td>
+          <td class="right" id="pt-da">—</td>
+          <td>施工可能地山土量</td>
+          <td class="right" id="pt-natural">—</td>
+        </tr>
+        <tr>
+          <td>ほぐし率</td>
+          <td class="right" id="pt-lr">—</td>
+          <td></td>
+          <td></td>
+        </tr>
+      </table>
+      <div id="pt-note" style="margin-top:8px;font-size:11px;color:#666"></div>
+    </div>
+  </div>
+
+  <div class="btn-row print-hide">
+    <button class="btn btn-primary" style="font-size:15px;padding:15px;" onclick="calculate(); showToast('✅ 計算しました')">🔢 計算する</button>
+  </div>
+  <div class="btn-row print-hide">
+    <button class="btn btn-secondary" onclick="resetForm()">🔄 リセット</button>
+    <button class="btn btn-secondary" onclick="saveRecord()">💾 履歴に保存</button>
+  </div>
+  <div class="btn-row print-hide">
+    <button class="btn btn-secondary" onclick="printForm()">🖨 A4印刷</button>
+    <button class="btn btn-secondary" onclick="exportCSV()">📤 CSV出力</button>
+  </div>
+</div>
+
+<!-- ─── 履歴ページ ─── -->
+<div id="page-history" class="page">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+    <div style="font-weight:700;font-size:15px">保存済み履歴</div>
+    <button class="btn btn-danger btn-sm" onclick="clearHistory()">全削除</button>
+  </div>
+  <div id="history-list"></div>
+</div>
+
+<!-- ─── 使い方ページ ─── -->
+<div id="page-guide" class="page">
+  <div class="card">
+    <div class="card-title">使い方ガイド</div>
+    <div class="guide-item">
+      <div class="guide-num">1</div>
+      <div class="guide-body">
+        <strong>入力する</strong>
+        <p>計算タブで石灰袋数・1袋重量・設計添加量・ほぐし率を入力すると、リアルタイムで自動計算されます。</p>
+      </div>
+    </div>
+    <div class="guide-item">
+      <div class="guide-num">2</div>
+      <div class="guide-body">
+        <strong>保存する</strong>
+        <p>「履歴に保存」ボタンで現場名・担当者・結果を保存します。過去データは履歴タブから確認・削除できます。</p>
+      </div>
+    </div>
+    <div class="guide-item">
+      <div class="guide-num">3</div>
+      <div class="guide-body">
+        <strong>印刷する</strong>
+        <p>「A4印刷」ボタンでブラウザの印刷画面を開きます。A4縦でそのまま管理表として利用できます。</p>
+      </div>
+    </div>
+    <div class="guide-item">
+      <div class="guide-num">4</div>
+      <div class="guide-body">
+        <strong>CSV出力</strong>
+        <p>「CSV出力」で履歴全件をCSVファイルとしてダウンロードできます。Excelに貼り付けて台帳として活用できます。</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">計算式</div>
+    <div style="font-size:13px;color:var(--text-dim);line-height:2">
+      <div>① <strong style="color:var(--text)">石灰使用量 (kg)</strong> = 石灰袋数 × 1袋重量</div>
+      <div>② <strong style="color:var(--text)">施工可能ほぐし土量 (m³)</strong> = ① ÷ 設計添加量</div>
+      <div>③ <strong style="color:var(--text)">施工可能地山土量 (m³)</strong> = ② ÷ ほぐし率</div>
+    </div>
+    <div class="divider"></div>
+    <div style="font-size:12px;color:var(--text-muted);line-height:1.8">
+      <div>⚠️ <strong style="color:var(--accent)">設計添加量はほぐし土量に対して適用</strong>します（地山土量ではありません）。</div>
+      <div>ほぐし率：地山1m³を掘削するとほぐし土量が何m³になるかを示す係数（例：1.25）</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">計算例</div>
+    <div style="font-size:13px;color:var(--text-dim)">
+      <div style="margin-bottom:6px">袋数22袋 × 1,000 kg = <strong style="color:var(--accent)">22,000 kg</strong></div>
+      <div style="margin-bottom:6px">22,000 ÷ 24 = <strong style="color:var(--green)">916.67 m³</strong>（ほぐし土量）</div>
+      <div>916.67 ÷ 1.25 = <strong style="color:var(--blue)">733.34 m³</strong>（地山土量）</div>
+    </div>
+    <button class="btn btn-primary" style="margin-top:12px;width:100%" onclick="loadExample()">この例を入力する</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ─── STATE ───
+let history_data = JSON.parse(localStorage.getItem('lime-history') || '[]');
+let draft = JSON.parse(localStorage.getItem('lime-draft') || '{}');
+
+// ─── INIT ───
+window.onload = () => {
+  // restore draft
+  if (draft.bags !== undefined) setVal('bags', draft.bags);
+  if (draft.bagWeight !== undefined) setVal('bag-weight', draft.bagWeight);
+  if (draft.designAdd !== undefined) setVal('design-add', draft.designAdd);
+  if (draft.loosenRate !== undefined) setVal('loosen-rate', draft.loosenRate);
+  if (draft.projectName !== undefined) document.getElementById('project-name').value = draft.projectName || '';
+  if (draft.workDate !== undefined) document.getElementById('work-date').value = draft.workDate || '';
+  if (draft.worker !== undefined) document.getElementById('worker').value = draft.worker || '';
+  if (draft.addMode) setAddMode(draft.addMode);
+  if (draft.designAddNatural !== undefined && draft.designAddNatural !== '') {
+    const el = document.getElementById('design-add-natural');
+    if (el) el.value = draft.designAddNatural;
+  }
+  calcConvertedAdd();
+  calculate();
+  renderHistory();
+};
+
+function setVal(id, v) {
+  const el = document.getElementById(id);
+  if (el && v !== '' && v !== null && v !== undefined) el.value = v;
+}
+
+// ─── TABS ───
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t,i) => {
+    t.classList.toggle('active', ['calc','history','guide'][i] === name);
+  });
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  if (name === 'history') renderHistory();
+}
+
+// ─── ADD MODE ───
+let addMode = 'loose'; // 'loose' | 'natural'
+
+function setAddMode(mode) {
+  addMode = mode;
+  document.getElementById('mode-btn-loose').classList.toggle('mode-active', mode === 'loose');
+  document.getElementById('mode-btn-natural').classList.toggle('mode-active', mode === 'natural');
+  document.getElementById('mode-loose-fields').style.display = mode === 'loose' ? '' : 'none';
+  document.getElementById('mode-natural-fields').style.display = mode === 'natural' ? '' : 'none';
+  calcConvertedAdd();
+  calculate();
+  autoSave();
+}
+
+function calcConvertedAdd() {
+  if (addMode !== 'natural') return;
+  const dan = parseFloat(document.getElementById('design-add-natural').value);
+  const lr  = parseFloat(document.getElementById('loosen-rate').value);
+  const el  = document.getElementById('design-add-converted');
+  if (!isNaN(dan) && !isNaN(lr) && lr > 0) {
+    const converted = dan / lr;
+    el.value = converted.toFixed(4);
+  } else {
+    el.value = '';
+  }
+}
+
+function getDesignAdd() {
+  if (addMode === 'natural') {
+    return parseFloat(document.getElementById('design-add-converted').value);
+  }
+  return parseFloat(document.getElementById('design-add').value);
+}
+
+// ─── CALCULATE ───
+function calculate() {
+  const bags = parseFloat(document.getElementById('bags').value);
+  const bw   = parseFloat(document.getElementById('bag-weight').value);
+  const lr   = parseFloat(document.getElementById('loosen-rate').value);
+  const da   = getDesignAdd();
+
+  const rLime    = document.getElementById('r-lime');
+  const rLoose   = document.getElementById('r-loose');
+  const rNatural = document.getElementById('r-natural');
+
+  if (isNaN(bags) || isNaN(bw) || isNaN(da) || isNaN(lr) || da === 0 || lr === 0) {
+    rLime.textContent = '—';
+    rLoose.textContent = '—';
+    rNatural.textContent = '—';
+    return;
+  }
+
+  const lime    = bags * bw;
+  const loose   = lime / da;
+  const natural = loose / lr;
+
+  rLime.textContent    = fmt(lime, 0);
+  rLoose.textContent   = fmt(loose, 2);
+  rNatural.textContent = fmt(natural, 2);
+
+  // 計算式表示
+  if (addMode === 'natural') {
+    const dan = parseFloat(document.getElementById('design-add-natural').value);
+    document.getElementById('f1').innerHTML = `石灰使用量 = <span class="f-accent">${fmt(bags,0)} 袋 × ${fmt(bw,0)} kg</span> = <span class="f-val">${fmt(lime,0)} kg</span>`;
+    document.getElementById('f2').innerHTML = `添加量換算 = <span class="f-accent">地山 ${fmt(dan,2)} kg/m³ ÷ ほぐし率 ${fmt(lr,2)}</span> = <span class="f-val">${fmt(da,4)} kg/m³（ほぐし基準）</span>`;
+    document.getElementById('f3').innerHTML = `ほぐし土量 = <span class="f-accent">${fmt(lime,0)} ÷ ${fmt(da,4)}</span> = <span class="f-val">${fmt(loose,2)} m³</span>`;
+    document.getElementById('f4').innerHTML = `地山土量　= <span class="f-accent">${fmt(loose,2)} ÷ ほぐし率 ${fmt(lr,2)}</span> = <span class="f-val">${fmt(natural,2)} m³</span>`;
+    document.getElementById('f4').style.display = '';
+  } else {
+    document.getElementById('f1').innerHTML = `石灰使用量 = <span class="f-accent">${fmt(bags,0)} 袋 × ${fmt(bw,0)} kg</span> = <span class="f-val">${fmt(lime,0)} kg</span>`;
+    document.getElementById('f2').innerHTML = `ほぐし土量 = <span class="f-accent">${fmt(lime,0)} ÷ 設計添加量 ${fmt(da,2)}</span> = <span class="f-val">${fmt(loose,2)} m³</span>`;
+    document.getElementById('f3').innerHTML = `地山土量　= <span class="f-accent">${fmt(loose,2)} ÷ ほぐし率 ${fmt(lr,2)}</span> = <span class="f-val">${fmt(natural,2)} m³</span>`;
+    document.getElementById('f4').style.display = 'none';
+  }
+
+  // 印刷テーブル
+  const daLabel = addMode === 'natural'
+    ? `地山 ${fmt(parseFloat(document.getElementById('design-add-natural').value)||0,2)} → ほぐし ${fmt(da,2)} kg/m³`
+    : fmt(da,2) + ' kg/m³';
+  document.getElementById('pt-bags').textContent    = fmt(bags,0) + ' 袋';
+  document.getElementById('pt-bw').textContent      = fmt(bw,0) + ' kg';
+  document.getElementById('pt-da').textContent      = daLabel;
+  document.getElementById('pt-lr').textContent      = fmt(lr,2);
+  document.getElementById('pt-lime').textContent    = fmt(lime,0) + ' kg';
+  document.getElementById('pt-loose').textContent   = fmt(loose,2) + ' m³';
+  document.getElementById('pt-natural').textContent = fmt(natural,2) + ' m³';
+}
+
+function fmt(v, dec) {
+  return v.toLocaleString('ja-JP', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+}
+
+// ─── AUTO SAVE DRAFT ───
+function autoSave() {
+  draft = {
+    bags: document.getElementById('bags').value,
+    bagWeight: document.getElementById('bag-weight').value,
+    designAdd: document.getElementById('design-add').value,
+    designAddNatural: document.getElementById('design-add-natural') ? document.getElementById('design-add-natural').value : '',
+    loosenRate: document.getElementById('loosen-rate').value,
+    projectName: document.getElementById('project-name').value,
+    workDate: document.getElementById('work-date').value,
+    worker: document.getElementById('worker').value,
+    addMode: addMode,
+  };
+  localStorage.setItem('lime-draft', JSON.stringify(draft));
+}
+
+// ─── SAVE RECORD ───
+function saveRecord() {
+  const bags = parseFloat(document.getElementById('bags').value);
+  const bw = parseFloat(document.getElementById('bag-weight').value);
+  const da = parseFloat(document.getElementById('design-add').value);
+  const lr = parseFloat(document.getElementById('loosen-rate').value);
+
+  if (isNaN(bags) || isNaN(bw) || isNaN(da) || isNaN(lr)) {
+    showToast('⚠ 全ての数値を入力してください', '#ff5c5c');
+    return;
+  }
+
+  const lime = bags * bw;
+  const loose = lime / da;
+  const natural = loose / lr;
+
+  const record = {
+    id: Date.now(),
+    savedAt: new Date().toLocaleString('ja-JP'),
+    projectName: document.getElementById('project-name').value || '（現場名未入力）',
+    workDate: document.getElementById('work-date').value || '',
+    worker: document.getElementById('worker').value || '',
+    bags, bw, da, lr,
+    lime, loose, natural
+  };
+
+  history_data.unshift(record);
+  localStorage.setItem('lime-history', JSON.stringify(history_data));
+  showToast('✅ 履歴に保存しました');
+}
+
+// ─── HISTORY RENDER ───
+function renderHistory() {
+  const list = document.getElementById('history-list');
+  if (history_data.length === 0) {
+    list.innerHTML = `<div class="empty-state"><div class="empty-icon">📭</div><div class="empty-text">保存された履歴はありません</div></div>`;
+    return;
+  }
+
+  list.innerHTML = history_data.map(r => `
+    <div class="history-item">
+      <div class="history-header">
+        <div>
+          <div class="history-project">${escHtml(r.projectName)}</div>
+          ${r.workDate ? `<div style="font-size:12px;color:var(--text-muted);margin-top:2px">📅 ${escHtml(r.workDate)}${r.worker ? ' ／ 👤 ' + escHtml(r.worker) : ''}</div>` : ''}
+        </div>
+        <div class="history-date">${r.savedAt}</div>
+      </div>
+      <div class="history-values">
+        <div class="hv-item">
+          <div class="hv-label">石灰使用量</div>
+          <div class="hv-val" style="color:var(--accent)">${r.lime.toLocaleString('ja-JP',{maximumFractionDigits:0})} <small>kg</small></div>
+        </div>
+        <div class="hv-item">
+          <div class="hv-label">ほぐし土量</div>
+          <div class="hv-val" style="color:var(--green)">${r.loose.toFixed(2)} <small>m³</small></div>
+        </div>
+        <div class="hv-item">
+          <div class="hv-label">地山土量</div>
+          <div class="hv-val" style="color:var(--blue)">${r.natural.toFixed(2)} <small>m³</small></div>
+        </div>
+      </div>
+      <div style="margin-top:8px;font-size:11px;color:var(--text-muted)">
+        ${r.bags}袋 × ${r.bw.toLocaleString()}kg ／ 設計添加量 ${r.da}kg/m³ ／ ほぐし率 ${r.lr}
+      </div>
+      <div class="history-actions">
+        <button class="btn btn-secondary btn-sm" onclick="loadRecord(${r.id})">📂 読込</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteRecord(${r.id})">🗑 削除</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function loadRecord(id) {
+  const r = history_data.find(x => x.id === id);
+  if (!r) return;
+  document.getElementById('bags').value = r.bags;
+  document.getElementById('bag-weight').value = r.bw;
+  document.getElementById('design-add').value = r.da;
+  document.getElementById('loosen-rate').value = r.lr;
+  document.getElementById('project-name').value = r.projectName;
+  document.getElementById('work-date').value = r.workDate || '';
+  document.getElementById('worker').value = r.worker || '';
+  calculate(); autoSave();
+  switchTab('calc');
+  showToast('📂 データを読み込みました');
+}
+
+function deleteRecord(id) {
+  history_data = history_data.filter(x => x.id !== id);
+  localStorage.setItem('lime-history', JSON.stringify(history_data));
+  renderHistory();
+  showToast('🗑 削除しました', '#ff5c5c');
+}
+
+function clearHistory() {
+  if (!confirm('全ての履歴を削除しますか？')) return;
+  history_data = [];
+  localStorage.setItem('lime-history', JSON.stringify([]));
+  renderHistory();
+  showToast('🗑 全削除しました', '#ff5c5c');
+}
+
+// ─── PRINT ───
+function printForm() {
+  const pn = document.getElementById('project-name').value;
+  document.getElementById('print-project-name').textContent = pn;
+  document.getElementById('print-date').textContent = '印刷日：' + new Date().toLocaleDateString('ja-JP');
+  // Add note
+  const note = document.getElementById('worker').value ? '担当：' + document.getElementById('worker').value : '';
+  document.getElementById('pt-note').textContent = note;
+  window.print();
+}
+
+// ─── RESET ───
+function resetForm() {
+  if (!confirm('入力値をリセットしますか？')) return;
+  ['bags','bag-weight','design-add','loosen-rate'].forEach(id => document.getElementById(id).value = '');
+  calculate();
+  showToast('🔄 リセットしました');
+}
+
+// ─── EXAMPLE ───
+function loadExample() {
+  document.getElementById('bags').value = 22;
+  document.getElementById('bag-weight').value = 1000;
+  document.getElementById('design-add').value = 24;
+  document.getElementById('loosen-rate').value = 1.25;
+  document.getElementById('project-name').value = '計算例（サンプル）';
+  calculate(); autoSave();
+  switchTab('calc');
+  showToast('✅ サンプルデータを入力しました');
+}
+
+// ─── CSV ───
+function exportCSV() {
+  if (history_data.length === 0) {
+    showToast('⚠ 保存された履歴がありません', '#ff5c5c');
+    return;
+  }
+  const header = ['保存日時','工事名','施工日','担当者','石灰袋数(袋)','1袋重量(kg)','設計添加量(kg/m3)','ほぐし率','石灰使用量(kg)','ほぐし土量(m3)','地山土量(m3)'];
+  const rows = history_data.map(r => [
+    r.savedAt, r.projectName, r.workDate || '', r.worker || '',
+    r.bags, r.bw, r.da, r.lr,
+    r.lime.toFixed(2), r.loose.toFixed(2), r.natural.toFixed(2)
+  ]);
+  const csv = '\uFEFF' + [header, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '石灰改良管理_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+  showToast('📤 CSVをダウンロードしました');
+}
+
+// ─── TOAST ───
+function showToast(msg, bg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = bg || 'var(--green)';
+  t.style.color = bg ? '#fff' : '#000';
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ─── ESC HTML ───
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
