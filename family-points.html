@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#1a1a2e">
+<title>おてつだいポイント</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
+<!-- Firebase -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, onValue, set, push, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+// ★ここにFirebaseの設定を貼り付ける★
+const firebaseConfig = {
+  apiKey: "AIzaSyCqdLNm7TM4daaIg3Q4GzcDRdvS74VPBm0",
+  authDomain: "family-points-99bdf.firebaseapp.com",
+  databaseURL: "https://family-points-99bdf-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "family-points-99bdf",
+  storageBucket: "family-points-99bdf.firebasestorage.app",
+  messagingSenderId: "930095800388",
+  appId: "1:930095800388:web:507f45c34d8953f36d9c11",
+  measurementId: "G-4YW67S32LQ"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+// ── デフォルトデータ ──
+const DEFAULT = {
+  kids:[
+    {name:'こども1',color:'#ffd700',emoji:'😀',pt:0,totalPt:0},
+    {name:'こども2',color:'#42a5f5',emoji:'😎',pt:0,totalPt:0},
+    {name:'こども3',color:'#ab47bc',emoji:'🐱',pt:0,totalPt:0},
+    {name:'こども4',color:'#4caf50',emoji:'🐸',pt:0,totalPt:0},
+  ],
+  tasks:[
+    {icon:'🧹',name:'そうじ',pt:5},
+    {icon:'🍽️',name:'食器片付け',pt:3},
+    {icon:'🛁',name:'おふろ洗い',pt:5},
+    {icon:'🛒',name:'買い物手伝い',pt:5},
+    {icon:'👕',name:'洗濯物たたむ',pt:4},
+    {icon:'📚',name:'勉強する',pt:10},
+  ],
+  penalties:[
+    {icon:'😠',name:'いうことを聞かない',pt:-5},
+    {icon:'🤬',name:'けんかする',pt:-3},
+    {icon:'🙅',name:'片付けしない',pt:-3},
+  ],
+  exchanges:[
+    {icon:'🎮',name:'ゲーム30分',pt:20},
+    {icon:'🍦',name:'アイス1個',pt:15},
+    {icon:'💴',name:'おこづかい+100円',pt:30},
+    {icon:'🎬',name:'映画えらぶ権',pt:50},
+  ],
+  chat:[],
+};
+
+let state = JSON.parse(JSON.stringify(DEFAULT));
+let currentTab = 'home';
+let exTarget = {exId:null, kidId:null};
+let chatName = localStorage.getItem('chatName') || '';
+
+// Firebase同期
+const stateRef = ref(db, 'state');
+onValue(stateRef, snap => {
+  const data = snap.val();
+  if(data){
+    state.kids = data.kids || DEFAULT.kids;
+    state.tasks = data.tasks || DEFAULT.tasks;
+    state.penalties = data.penalties || DEFAULT.penalties;
+    state.exchanges = data.exchanges || DEFAULT.exchanges;
+  }
+  if(currentTab==='home') renderHome();
+  else if(currentTab==='rank') renderRank();
+  else if(currentTab==='settings') renderSettings();
+});
+
+const histRef = ref(db, 'history');
+onValue(histRef, snap => {
+  const data = snap.val();
+  state.history = data ? Object.values(data).reverse() : [];
+  if(currentTab==='history') renderHistory();
+});
+
+const chatRef = ref(db, 'chat');
+onValue(chatRef, snap => {
+  const data = snap.val();
+  state.chat = data ? Object.values(data) : [];
+  if(currentTab==='chat') renderChat();
+});
+
+function saveState(){
+  set(stateRef, {
+    kids: state.kids,
+    tasks: state.tasks,
+    penalties: state.penalties,
+    exchanges: state.exchanges,
+  });
+}
+function pushHistory(item){ push(histRef, item); }
+function pushChat(item){ push(chatRef, item); }
+
+// ── UI ──
+window.switchTab = function(t){
+  currentTab = t;
+  document.querySelectorAll('.tab').forEach((b,i)=>b.classList.toggle('active',['home','chat','history','rank','settings'][i]===t));
+  document.querySelectorAll('.panel').forEach((p,i)=>p.classList.toggle('active',['home','chat','history','rank','settings'][i]===t));
+  if(t==='home') renderHome();
+  else if(t==='chat') renderChat();
+  else if(t==='history') renderHistory();
+  else if(t==='rank') renderRank();
+  else renderSettings();
+};
+
+// HOME
+function renderHome(){
+  const p=document.getElementById('panel-home');
+  p.innerHTML='';
+  state.kids.forEach((k,ki)=>{
+    const card=document.createElement('div');
+    card.className='kid-card';
+    const taskBtns=state.tasks.map((t,ti)=>`
+      <div class="task-btn" onclick="addPoint(${ki},${ti},1)">
+        <div class="task-icon">${t.icon}</div>
+        <div class="task-name">${t.name}</div>
+        <div class="task-pt">+${t.pt}pt</div>
+      </div>`).join('');
+    const penBtns=state.penalties.map((t,ti)=>`
+      <div class="task-btn pen" onclick="addPoint(${ki},${ti},-1)">
+        <div class="task-icon">${t.icon}</div>
+        <div class="task-name">${t.name}</div>
+        <div class="task-pt neg">${t.pt}pt</div>
+      </div>`).join('');
+    const exBtns=state.exchanges.map((e,ei)=>`
+      <div class="ex-btn" onclick="startExchange(${ki},${ei})">
+        <div class="ex-btn-icon">${e.icon}</div>
+        <div class="ex-btn-name">${e.name}</div>
+        <div class="ex-btn-pt">-${e.pt}pt</div>
+      </div>`).join('');
+    card.innerHTML=`
+      <div class="kid-header">
+        <div class="kid-avatar" style="background:${k.color}22;border:2px solid ${k.color}">${k.emoji}</div>
+        <div class="kid-info">
+          <div class="kid-name" style="color:${k.color}">${k.name}</div>
+          <div class="kid-pt-row"><span class="kid-pt" id="pt-${ki}">${k.pt}</span><span class="kid-pt-lbl">pt 所持</span></div>
+          <div class="kid-total">累計 ${k.totalPt} pt</div>
+        </div>
+      </div>
+      <div class="sec-lbl">✅ おてつだい</div>
+      <div class="task-grid">${taskBtns}</div>
+      <div class="sec-lbl" style="color:rgba(239,83,80,0.85)">😤 罰則ポイント</div>
+      <div class="task-grid">${penBtns}</div>
+      <div class="sec-lbl" style="color:rgba(239,83,80,0.7);border-top:1px solid rgba(255,255,255,0.06)">🎁 ポイント交換</div>
+      <div class="exchange-btn-grid">${exBtns}</div>`;
+    p.appendChild(card);
+  });
+}
+
+window.addPoint = function(ki, ti, mode){
+  const k = state.kids[ki];
+  const t = mode===1 ? state.tasks[ti] : state.penalties[ti];
+  if(!k||!t) return;
+  k.pt += t.pt; k.totalPt += (t.pt > 0 ? t.pt : 0);
+  if(k.pt < 0) k.pt = 0;
+  saveState();
+  pushHistory({kidName:k.name,kidEmoji:k.emoji,kidColor:k.color,taskName:t.name,pt:t.pt,time:new Date().toLocaleString('ja-JP')});
+  floatPt((t.pt>0?'+':'')+t.pt, event);
+};
+
+function floatPt(text, e){
+  const el=document.createElement('div');
+  el.className='float-pt';
+  el.textContent=text;
+  el.style.color = text.includes('-') ? '#ef5350' : '#ffd700';
+  const x=(e?.clientX||window.innerWidth/2)-20;
+  const y=(e?.clientY||window.innerHeight/2)-20;
+  el.style.left=x+'px'; el.style.top=y+'px';
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(),1300);
+}
+
+// EXCHANGE
+window.startExchange = function(ki, ei){
+  const k=state.kids[ki], ex=state.exchanges[ei];
+  exTarget={ki,ei};
+  document.getElementById('ex-modal-ttl').textContent=ex.icon+' '+ex.name;
+  document.getElementById('ex-modal-sub').textContent=`${ex.pt}pt と交換します。誰のポイントを使いますか？`;
+  const kidsDiv=document.getElementById('ex-modal-kids');
+  kidsDiv.innerHTML=state.kids.map((k2,i)=>`
+    <button class="modal-kid-btn${i===ki?' sel':''}" onclick="selectKid(${i})" id="mk-${i}">
+      ${k2.emoji} ${k2.name}<br><small style="color:${k2.color}">${k2.pt}pt</small>
+    </button>`).join('');
+  document.getElementById('ex-modal').classList.remove('hidden');
+};
+window.selectKid = function(i){
+  exTarget.ki=i;
+  document.querySelectorAll('.modal-kid-btn').forEach(b=>b.classList.remove('sel'));
+  document.getElementById('mk-'+i)?.classList.add('sel');
+};
+window.confirmExchange = function(){
+  const k=state.kids[exTarget.ki], ex=state.exchanges[exTarget.ei];
+  if(!k||!ex) return closeExModal();
+  if(k.pt<ex.pt){alert(`${k.name}のポイントが足りません！\n必要: ${ex.pt}pt / 所持: ${k.pt}pt`);return;}
+  k.pt-=ex.pt;
+  saveState();
+  pushHistory({kidName:k.name,kidEmoji:k.emoji,kidColor:k.color,taskName:ex.icon+' '+ex.name,pt:-ex.pt,time:new Date().toLocaleString('ja-JP')});
+  closeExModal();
+};
+window.closeExModal = function(){ document.getElementById('ex-modal').classList.add('hidden'); };
+document.getElementById('ex-modal').addEventListener('click',e=>{if(e.target===document.getElementById('ex-modal'))closeExModal();});
+
+// CHAT
+function renderChat(){
+  const p=document.getElementById('panel-chat');
+  if(!chatName){
+    p.innerHTML=`<div class="chat-name-setup">
+      <div style="font-size:32px;margin-bottom:12px">💬</div>
+      <div style="font-size:16px;font-weight:700;margin-bottom:8px">名前を入力してください</div>
+      <input id="chat-name-inp" class="chat-name-inp" type="text" placeholder="例：お父さん・太郎" maxlength="10">
+      <button class="btn-chat-name" onclick="setChatName()">決定</button>
+    </div>`;
+    return;
+  }
+  const msgs = state.chat.slice(-50);
+  p.innerHTML=`
+    <div class="chat-header">
+      <span>💬 家族チャット</span>
+      <span class="chat-myname" onclick="changeChatName()">👤 ${chatName}</span>
+    </div>
+    <div class="chat-messages" id="chat-messages">
+      ${msgs.length?msgs.map(m=>`
+        <div class="chat-msg ${m.name===chatName?'mine':'other'}">
+          ${m.name!==chatName?`<div class="msg-name">${m.emoji||'👤'} ${m.name}</div>`:''}
+          <div class="msg-bubble">${escHtml(m.text)}</div>
+          <div class="msg-time">${m.time}</div>
+        </div>`).join(''):'<div class="no-chat">まだメッセージはありません</div>'}
+    </div>
+    <div class="chat-input-row">
+      <input class="chat-inp" id="chat-inp" type="text" placeholder="メッセージを入力..." maxlength="100"
+        onkeydown="if(event.key==='Enter')sendChat()">
+      <button class="chat-send" onclick="sendChat()">送信</button>
+    </div>`;
+  const msgs_el=document.getElementById('chat-messages');
+  if(msgs_el) msgs_el.scrollTop=msgs_el.scrollHeight;
+}
+function escHtml(t){ return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+window.setChatName = function(){
+  const v=document.getElementById('chat-name-inp')?.value.trim();
+  if(!v)return;
+  chatName=v; localStorage.setItem('chatName',v); renderChat();
+};
+window.changeChatName = function(){
+  chatName=''; localStorage.removeItem('chatName'); renderChat();
+};
+window.sendChat = function(){
+  const inp=document.getElementById('chat-inp');
+  const text=inp?.value.trim();
+  if(!text)return;
+  const emojis=['😀','😎','🐱','🐸','👨','👩','👴','👵'];
+  const savedEmoji=localStorage.getItem('chatEmoji')||emojis[Math.floor(Math.random()*4)];
+  localStorage.setItem('chatEmoji',savedEmoji);
+  pushChat({name:chatName,emoji:savedEmoji,text,time:new Date().toLocaleString('ja-JP')});
+  inp.value='';
+};
+
+// HISTORY
+function renderHistory(){
+  const p=document.getElementById('panel-history');
+  if(!state.history||!state.history.length){p.innerHTML='<div class="no-history">まだ履歴がありません</div>';return;}
+  p.innerHTML=`<div class="history-list">${state.history.slice(0,60).map(h=>`
+    <div class="history-item">
+      <div class="h-avatar" style="background:${h.kidColor}22;border:1.5px solid ${h.kidColor}">${h.kidEmoji}</div>
+      <div class="h-info">
+        <div class="h-name" style="color:${h.kidColor}">${h.kidName}</div>
+        <div class="h-task">${h.taskName}</div>
+        <div class="h-time">${h.time}</div>
+      </div>
+      <div class="h-pt${h.pt<0?' neg':''}">${h.pt>0?'+':''}${h.pt}pt</div>
+    </div>`).join('')}</div>`;
+}
+
+// RANK
+function renderRank(){
+  const p=document.getElementById('panel-rank');
+  const sorted=[...state.kids].map((k,i)=>({...k,idx:i})).sort((a,b)=>b.totalPt-a.totalPt);
+  const max=sorted[0]?.totalPt||1;
+  const medals=['🥇','🥈','🥉','4️⃣'];
+  p.innerHTML=`<div class="rank-card">${sorted.map((k,i)=>`
+    <div class="rank-row">
+      <div class="rank-num ${i<3?'rank-'+(i+1):''}">${medals[i]}</div>
+      <div class="rank-bar-wrap">
+        <div class="rank-name" style="color:${k.color}">${k.emoji} ${k.name}</div>
+        <div class="rank-bar-bg"><div class="rank-bar" style="width:${Math.max(4,k.totalPt/max*100)}%"></div></div>
+      </div>
+      <div class="rank-pt">${k.totalPt}pt</div>
+    </div>`).join('')}</div>`;
+}
+
+// SETTINGS
+function renderSettings(){
+  const p=document.getElementById('panel-settings');
+  const kidRows=state.kids.map((k,i)=>`
+    <div class="setting-row">
+      <div class="kid-color-dot" style="background:${k.color}"></div>
+      <input class="setting-inp" type="text" value="${k.name}" placeholder="名前"
+        oninput="state.kids[${i}].name=this.value" style="flex:1;text-align:left;width:auto">
+      <input class="setting-inp" type="text" value="${k.emoji}" placeholder="😀" maxlength="2"
+        oninput="state.kids[${i}].emoji=this.value" style="width:52px;text-align:center">
+    </div>`).join('');
+  const taskRows=state.tasks.map((t,i)=>`
+    <div class="task-setting-row">
+      <input class="ts-icon-inp" type="text" value="${t.icon}" maxlength="2" oninput="state.tasks[${i}].icon=this.value">
+      <input class="ts-name-inp" type="text" value="${t.name}" oninput="state.tasks[${i}].name=this.value">
+      <input class="ts-pt-inp" type="number" value="${t.pt}" min="1" oninput="state.tasks[${i}].pt=parseInt(this.value)||1">
+      <span style="font-size:11px;color:var(--muted)">pt</span>
+      <button class="ts-del" onclick="delTask(${i})">✕</button>
+    </div>`).join('');
+  const penRows=state.penalties.map((t,i)=>`
+    <div class="task-setting-row">
+      <input class="ts-icon-inp" type="text" value="${t.icon}" maxlength="2" oninput="state.penalties[${i}].icon=this.value">
+      <input class="ts-name-inp" type="text" value="${t.name}" oninput="state.penalties[${i}].name=this.value">
+      <input class="ts-pt-inp" type="number" value="${Math.abs(t.pt)}" min="1" oninput="state.penalties[${i}].pt=-Math.abs(parseInt(this.value)||1)" style="color:var(--red)">
+      <span style="font-size:11px;color:var(--muted)">pt</span>
+      <button class="ts-del" onclick="delPen(${i})">✕</button>
+    </div>`).join('');
+  const exRows=state.exchanges.map((e,i)=>`
+    <div class="exchange-row">
+      <input class="ex-icon-inp" type="text" value="${e.icon}" maxlength="2" oninput="state.exchanges[${i}].icon=this.value">
+      <input class="ex-name-inp" type="text" value="${e.name}" oninput="state.exchanges[${i}].name=this.value">
+      <input class="ex-pt-inp" type="number" value="${e.pt}" min="1" oninput="state.exchanges[${i}].pt=parseInt(this.value)||1">
+      <span style="font-size:11px;color:var(--muted)">pt</span>
+      <button class="ex-del" onclick="delEx(${i})">✕</button>
+    </div>`).join('');
+  p.innerHTML=`
+    <div class="setting-section">
+      <div class="setting-ttl">👦 子供の名前・アイコン</div>
+      <div class="setting-card">${kidRows}</div>
+    </div>
+    <div class="setting-section">
+      <div class="setting-ttl">✅ お手伝いの種類・ポイント</div>
+      <div class="setting-card">${taskRows}</div>
+      <div style="margin-top:8px"><button class="btn-add-task" onclick="addTask()">＋ お手伝いを追加</button></div>
+    </div>
+    <div class="setting-section">
+      <div class="setting-ttl">😤 罰則ポイント</div>
+      <div class="setting-card">${penRows}</div>
+      <div style="margin-top:8px"><button class="btn-add-task" style="border-color:rgba(239,83,80,0.3);color:var(--red)" onclick="addPen()">＋ 罰則を追加</button></div>
+    </div>
+    <div class="setting-section">
+      <div class="setting-ttl">🎁 ポイント交換アイテム</div>
+      <div class="setting-card">${exRows}</div>
+      <div style="margin-top:8px"><button class="btn-add-ex" onclick="addEx()">＋ 交換アイテムを追加</button></div>
+    </div>
+    <div class="setting-section">
+      <div class="setting-ttl">⚠️ リセット</div>
+      <div class="setting-card">
+        <div class="setting-row">
+          <span class="setting-lbl" style="color:rgba(239,83,80,0.8)">ポイントを全員リセット</span>
+          <button onclick="resetPoints()" style="background:rgba(239,83,80,0.15);border:1px solid rgba(239,83,80,0.4);border-radius:8px;padding:6px 14px;color:var(--red);font-size:13px;cursor:pointer;font-family:var(--fu)">リセット</button>
+        </div>
+      </div>
+    </div>
+    <button class="btn-save" onclick="saveSettings()">💾 保存する</button>`;
+}
+
+window.addTask=()=>{ state.tasks.push({icon:'⭐',name:'新しいお手伝い',pt:5}); renderSettings(); };
+window.delTask=i=>{ if(state.tasks.length<=1)return; state.tasks.splice(i,1); renderSettings(); };
+window.addPen=()=>{ state.penalties.push({icon:'😠',name:'新しい罰則',pt:-3}); renderSettings(); };
+window.delPen=i=>{ if(state.penalties.length<=1)return; state.penalties.splice(i,1); renderSettings(); };
+window.addEx=()=>{ state.exchanges.push({icon:'🎁',name:'ごほうび',pt:20}); renderSettings(); };
+window.delEx=i=>{ if(state.exchanges.length<=1)return; state.exchanges.splice(i,1); renderSettings(); };
+window.resetPoints=()=>{
+  if(!confirm('全員のポイントをリセットしますか？'))return;
+  state.kids.forEach(k=>k.pt=0); saveState();
+};
+window.saveSettings=()=>{ saveState(); alert('保存しました！'); switchTab('home'); };
+
+</script>
+<style>
+:root{
+  --bg:#1a1a2e;--surface:#16213e;--surface2:#0f3460;--card:#1e2a4a;
+  --text:#e8eaf6;--muted:#7986cb;
+  --gold:#ffd700;--gold2:#ffb300;
+  --green:#4caf50;--red:#ef5350;--blue:#42a5f5;
+  --fu:'Noto Sans JP',sans-serif;--fm:'DM Mono',monospace;
+  --r:16px;--r-sm:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{min-height:100%;background:var(--bg);color:var(--text);font-family:var(--fu);}
+body{max-width:430px;margin:0 auto;min-height:100dvh;
+  background:radial-gradient(ellipse at top,#16213e 0%,#1a1a2e 70%);}
+
+.header{padding:max(env(safe-area-inset-top),36px) 18px 16px;text-align:center;
+  background:linear-gradient(180deg,rgba(255,215,0,0.08) 0%,transparent 100%);
+  border-bottom:1px solid rgba(255,215,0,0.15);}
+.header-icon{font-size:36px;margin-bottom:4px;}
+.header-ttl{font-size:22px;font-weight:900;letter-spacing:0.05em;
+  background:linear-gradient(135deg,var(--gold),var(--gold2));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.header-sub{font-size:11px;color:var(--muted);letter-spacing:0.1em;margin-top:2px;}
+
+.main{padding:16px 16px calc(env(safe-area-inset-bottom)+80px);}
+
+.tabs{display:flex;background:var(--surface);border-radius:var(--r);padding:4px;gap:3px;
+  margin-bottom:16px;border:1px solid rgba(255,255,255,0.06);}
+.tab{flex:1;padding:8px 2px;border-radius:var(--r-sm);border:none;background:none;
+  color:var(--muted);font-size:11px;cursor:pointer;font-family:var(--fu);font-weight:500;transition:all 0.15s;}
+.tab.active{background:var(--surface2);color:var(--gold);font-weight:700;}
+.tab:active{opacity:0.7;}
+.panel{display:none;}
+.panel.active{display:block;}
+
+.kid-card{background:var(--card);border-radius:var(--r);border:1px solid rgba(255,255,255,0.08);margin-bottom:12px;overflow:hidden;}
+.kid-header{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.06);}
+.kid-avatar{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;}
+.kid-info{flex:1;}
+.kid-name{font-size:16px;font-weight:700;}
+.kid-pt-row{display:flex;align-items:baseline;gap:4px;margin-top:2px;}
+.kid-pt{font-size:28px;font-weight:900;font-family:var(--fm);color:var(--gold);}
+.kid-pt-lbl{font-size:11px;color:var(--muted);}
+.kid-total{font-size:11px;color:var(--muted);margin-top:1px;}
+
+.sec-lbl{padding:8px 16px 4px;font-size:11px;color:var(--muted);font-weight:700;letter-spacing:0.1em;}
+.task-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:4px 16px 12px;}
+.task-btn{background:var(--surface);border:1px solid rgba(255,255,255,0.08);border-radius:var(--r-sm);
+  padding:10px 8px;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;transition:all 0.15s;}
+.task-btn:active{transform:scale(0.95);background:rgba(255,215,0,0.1);border-color:var(--gold);}
+.task-btn.pen:active{background:rgba(239,83,80,0.1);border-color:var(--red);}
+.task-icon{font-size:24px;}
+.task-name{font-size:11px;color:var(--text);text-align:center;line-height:1.3;}
+.task-pt{font-size:13px;font-weight:700;color:var(--gold);font-family:var(--fm);}
+.task-pt.neg{color:var(--red);}
+
+.exchange-btn-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:4px 16px 16px;}
+.ex-btn{background:var(--surface);border:1px solid rgba(239,83,80,0.25);border-radius:var(--r-sm);
+  padding:10px 8px;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;transition:all 0.15s;}
+.ex-btn:active{transform:scale(0.95);background:rgba(239,83,80,0.1);}
+.ex-btn-icon{font-size:24px;}
+.ex-btn-name{font-size:11px;color:var(--text);text-align:center;}
+.ex-btn-pt{font-size:13px;font-weight:700;color:var(--red);font-family:var(--fm);}
+
+@keyframes floatUp{0%{opacity:1;transform:translateY(0) scale(1);}80%{opacity:1;}100%{opacity:0;transform:translateY(-80px) scale(1.3);}}
+.float-pt{position:fixed;font-size:28px;font-weight:900;font-family:var(--fm);pointer-events:none;z-index:999;animation:floatUp 1.2s ease forwards;}
+
+/* チャット */
+.chat-name-setup{display:flex;flex-direction:column;align-items:center;padding:40px 20px;gap:12px;}
+.chat-name-inp{background:var(--card);border:1px solid rgba(255,255,255,0.1);border-radius:var(--r-sm);
+  color:var(--text);font-family:var(--fu);font-size:16px;padding:12px 16px;width:100%;text-align:center;}
+.chat-name-inp:focus{outline:none;border-color:var(--gold);}
+.btn-chat-name{width:100%;padding:14px;border-radius:var(--r);border:none;
+  background:linear-gradient(135deg,var(--gold2),var(--gold));color:#1a1a2e;font-size:15px;font-weight:700;cursor:pointer;}
+.chat-header{display:flex;align-items:center;justify-content:space-between;
+  padding:10px 16px;background:var(--card);border-radius:var(--r);margin-bottom:10px;
+  border:1px solid rgba(255,255,255,0.08);}
+.chat-myname{font-size:12px;color:var(--muted);cursor:pointer;}
+.chat-messages{display:flex;flex-direction:column;gap:8px;max-height:50vh;overflow-y:auto;margin-bottom:10px;padding:4px 0;}
+.chat-msg{display:flex;flex-direction:column;max-width:80%;}
+.chat-msg.mine{align-self:flex-end;align-items:flex-end;}
+.chat-msg.other{align-self:flex-start;align-items:flex-start;}
+.msg-name{font-size:11px;color:var(--muted);margin-bottom:3px;}
+.msg-bubble{background:var(--card);border:1px solid rgba(255,255,255,0.08);border-radius:var(--r-sm);
+  padding:10px 14px;font-size:14px;line-height:1.5;word-break:break-all;}
+.chat-msg.mine .msg-bubble{background:var(--surface2);border-color:rgba(255,215,0,0.2);}
+.msg-time{font-size:9px;color:var(--muted);margin-top:3px;}
+.chat-input-row{display:flex;gap:8px;}
+.chat-inp{flex:1;background:var(--card);border:1px solid rgba(255,255,255,0.1);border-radius:var(--r-sm);
+  color:var(--text);font-family:var(--fu);font-size:15px;padding:12px 14px;}
+.chat-inp:focus{outline:none;border-color:var(--gold);}
+.chat-send{padding:12px 18px;border-radius:var(--r-sm);border:none;
+  background:var(--gold);color:#1a1a2e;font-size:14px;font-weight:700;cursor:pointer;}
+.chat-send:active{opacity:0.85;}
+.no-chat{text-align:center;padding:32px;color:var(--muted);font-size:13px;}
+
+/* 履歴 */
+.history-list{display:flex;flex-direction:column;gap:6px;}
+.history-item{background:var(--card);border-radius:var(--r-sm);padding:10px 14px;display:flex;align-items:center;gap:10px;border:1px solid rgba(255,255,255,0.06);}
+.h-avatar{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
+.h-info{flex:1;}
+.h-name{font-size:12px;font-weight:600;}
+.h-task{font-size:11px;color:var(--muted);}
+.h-time{font-size:10px;color:var(--muted);}
+.h-pt{font-family:var(--fm);font-weight:700;font-size:15px;color:var(--gold);}
+.h-pt.neg{color:var(--red);}
+.no-history{text-align:center;padding:32px;color:var(--muted);font-size:13px;}
+
+/* ランキング */
+.rank-card{background:var(--card);border-radius:var(--r);border:1px solid rgba(255,255,255,0.08);padding:16px;margin-bottom:12px;}
+.rank-row{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+.rank-row:last-child{margin-bottom:0;}
+.rank-num{font-size:20px;font-weight:900;font-family:var(--fm);width:28px;text-align:center;}
+.rank-1{color:var(--gold);}
+.rank-2{color:#b0bec5;}
+.rank-3{color:#a0522d;}
+.rank-bar-wrap{flex:1;}
+.rank-name{font-size:13px;font-weight:700;margin-bottom:4px;}
+.rank-bar-bg{background:rgba(255,255,255,0.08);border-radius:4px;height:8px;overflow:hidden;}
+.rank-bar{height:8px;border-radius:4px;background:linear-gradient(90deg,var(--gold2),var(--gold));transition:width 0.5s ease;}
+.rank-pt{font-size:15px;font-weight:700;font-family:var(--fm);color:var(--gold);}
+
+/* 設定 */
+.setting-section{margin-bottom:20px;}
+.setting-ttl{font-size:12px;font-weight:700;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:10px;}
+.setting-card{background:var(--card);border-radius:var(--r);border:1px solid rgba(255,255,255,0.08);overflow:hidden;}
+.setting-row{display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.06);gap:8px;}
+.setting-row:last-child{border-bottom:none;}
+.setting-lbl{flex:1;font-size:13px;}
+.setting-inp{background:var(--surface);border:1px solid rgba(255,255,255,0.1);border-radius:var(--r-sm);
+  color:var(--text);font-family:var(--fu);font-size:14px;padding:6px 10px;width:140px;text-align:right;}
+.setting-inp:focus{outline:none;border-color:var(--gold);}
+.kid-color-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;}
+.task-setting-row{display:flex;align-items:center;gap:6px;padding:10px 14px;border-bottom:1px solid rgba(255,255,255,0.06);}
+.task-setting-row:last-child{border-bottom:none;}
+.ts-icon-inp,.ex-icon-inp{background:var(--surface);border:1px solid rgba(255,255,255,0.1);border-radius:var(--r-sm);color:var(--text);font-size:16px;padding:5px 6px;width:46px;text-align:center;font-family:var(--fu);}
+.ts-icon-inp:focus,.ex-icon-inp:focus{outline:none;border-color:var(--gold);}
+.ts-name-inp,.ex-name-inp{flex:1;background:var(--surface);border:1px solid rgba(255,255,255,0.1);border-radius:var(--r-sm);color:var(--text);font-family:var(--fu);font-size:13px;padding:6px 8px;}
+.ts-name-inp:focus,.ex-name-inp:focus{outline:none;border-color:var(--gold);}
+.ts-pt-inp,.ex-pt-inp{background:var(--surface);border:1px solid rgba(255,255,255,0.1);border-radius:var(--r-sm);color:var(--gold);font-family:var(--fm);font-size:13px;font-weight:700;padding:6px 6px;width:52px;text-align:right;-webkit-appearance:none;}
+.ts-pt-inp:focus,.ex-pt-inp:focus{outline:none;border-color:var(--gold);}
+.ts-del,.ex-del{background:none;border:none;color:rgba(239,83,80,0.5);font-size:18px;cursor:pointer;padding:2px 4px;}
+.ts-del:active,.ex-del:active{color:var(--red);}
+.btn-add-task{width:100%;padding:11px;background:none;border:1px dashed rgba(255,215,0,0.3);border-radius:var(--r-sm);color:var(--gold);font-size:13px;cursor:pointer;font-family:var(--fu);}
+.btn-add-task:active{background:rgba(255,215,0,0.08);}
+.btn-add-ex{width:100%;padding:11px;background:none;border:1px dashed rgba(239,83,80,0.3);border-radius:var(--r-sm);color:var(--red);font-size:13px;cursor:pointer;font-family:var(--fu);}
+.btn-add-ex:active{background:rgba(239,83,80,0.08);}
+.exchange-row{display:flex;align-items:center;gap:6px;padding:10px 14px;border-bottom:1px solid rgba(255,255,255,0.06);}
+.exchange-row:last-child{border-bottom:none;}
+.btn-save{width:100%;padding:14px;border-radius:var(--r);border:none;background:linear-gradient(135deg,var(--gold2),var(--gold));color:#1a1a2e;font-size:15px;font-weight:700;cursor:pointer;font-family:var(--fu);}
+.btn-save:active{opacity:0.85;}
+
+/* モーダル */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(8px);z-index:200;display:flex;align-items:flex-end;justify-content:center;}
+.modal-overlay.hidden{display:none;}
+.modal-sheet{width:100%;max-width:430px;background:var(--surface);border-radius:24px 24px 0 0;border-top:1px solid rgba(255,255,255,0.1);padding:20px 20px max(env(safe-area-inset-bottom),24px);animation:sheetUp 0.3s ease;}
+@keyframes sheetUp{from{transform:translateY(60px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+.modal-handle{width:36px;height:4px;background:rgba(255,255,255,0.2);border-radius:2px;margin:0 auto 16px;}
+.modal-ttl{font-size:16px;font-weight:700;margin-bottom:4px;text-align:center;}
+.modal-sub{font-size:12px;color:var(--muted);text-align:center;margin-bottom:16px;}
+.modal-kids{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:16px;}
+.modal-kid-btn{padding:8px 14px;border-radius:20px;border:1px solid rgba(255,255,255,0.15);background:var(--card);cursor:pointer;font-family:var(--fu);font-size:13px;color:var(--text);}
+.modal-kid-btn.sel{border-color:var(--gold);background:rgba(255,215,0,0.15);color:var(--gold);font-weight:700;}
+.modal-kid-btn:active{opacity:0.7;}
+.modal-confirm{width:100%;padding:14px;border-radius:var(--r);border:none;background:linear-gradient(135deg,var(--gold2),var(--gold));color:#1a1a2e;font-size:15px;font-weight:700;cursor:pointer;font-family:var(--fu);}
+.modal-confirm:active{opacity:0.85;}
+.modal-cancel{width:100%;padding:12px;border-radius:var(--r);border:1px solid rgba(255,255,255,0.15);background:none;color:var(--muted);font-size:14px;cursor:pointer;font-family:var(--fu);margin-top:8px;}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="header-icon">🏆</div>
+  <div class="header-ttl">おてつだいポイント</div>
+  <div class="header-sub">FAMILY POINT BOARD</div>
+</div>
+<div class="main">
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('home')">🏠 ホーム</button>
+    <button class="tab" onclick="switchTab('chat')">💬 チャット</button>
+    <button class="tab" onclick="switchTab('history')">📋 履歴</button>
+    <button class="tab" onclick="switchTab('rank')">🏆 ランク</button>
+    <button class="tab" onclick="switchTab('settings')">⚙️ 設定</button>
+  </div>
+  <div class="panel active" id="panel-home"></div>
+  <div class="panel" id="panel-chat"></div>
+  <div class="panel" id="panel-history"></div>
+  <div class="panel" id="panel-rank"></div>
+  <div class="panel" id="panel-settings"></div>
+</div>
+
+<div class="modal-overlay hidden" id="ex-modal">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-ttl" id="ex-modal-ttl">ポイント交換</div>
+    <div class="modal-sub" id="ex-modal-sub"></div>
+    <div class="modal-kids" id="ex-modal-kids"></div>
+    <button class="modal-confirm" onclick="confirmExchange()">交換する</button>
+    <button class="modal-cancel" onclick="closeExModal()">キャンセル</button>
+  </div>
+</div>
+</body>
+</html>
