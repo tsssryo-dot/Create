@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#f5f0e4">
+<title>水準測量野帳</title>
+<link href="https://fonts.googleapis.com/css2?family=Klee+One:wght@400;600&family=Noto+Sans+JP:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --paper:   #f6f1e5;
+  --paper2:  #ede8d4;
+  --paper3:  #e4ddc6;
+  --ink:     #111118;
+  --ink2:    #2a2a3a;
+  --muted:   #88806e;
+  --grid:    rgba(170,158,138,0.45);
+  --grid-d:  rgba(140,128,108,0.7);
+  --red-rule:#c0392b;
+  --blue:    #1a3a8a;
+  --red-v:   #b02020;
+  --green:   #1a6030;
+  --orange:  #a04600;
+  --cover:   #2d5a1b;
+  --fh: 'Klee One', cursive;
+  --fu: 'Noto Sans JP', sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html{background:#a89878;min-height:100%;}
+body{
+  font-family:var(--fh);
+  max-width:420px;margin:0 auto;
+  min-height:100dvh;
+  background-color:var(--paper);
+  background-image:
+    linear-gradient(rgba(160,148,128,0.35) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(160,148,128,0.35) 1px,transparent 1px),
+    linear-gradient(rgba(160,148,128,0.12) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(160,148,128,0.12) 1px,transparent 1px);
+  background-size:44px 44px,44px 44px,11px 11px,11px 11px;
+  box-shadow:4px 0 24px rgba(0,0,0,0.35),-2px 0 10px rgba(0,0,0,0.15);
+}
+
+/* 背表紙 */
+.spine{position:fixed;left:0;top:0;bottom:0;width:26px;
+  background:linear-gradient(90deg,#1e3f12 0%,#2d5a1b 55%,#244d16 100%);
+  z-index:300;box-shadow:3px 0 8px rgba(0,0,0,0.4);
+  display:flex;align-items:center;justify-content:center;}
+.spine-txt{writing-mode:vertical-rl;text-orientation:mixed;
+  font-size:8px;letter-spacing:0.2em;color:rgba(255,255,255,0.5);
+  font-family:var(--fu);font-weight:500;white-space:nowrap;transform:rotate(180deg);}
+
+.content{margin-left:26px;}
+
+/* 表紙 */
+.cover{
+  background:linear-gradient(160deg,#2d5a1b 0%,#3a7022 60%,#2d5a1b 100%);
+  padding:14px 14px 12px;border-bottom:3px double #1a3a0e;position:relative;
+}
+.cover::after{content:'';position:absolute;inset:4px;border:1px solid rgba(255,255,255,0.14);pointer-events:none;}
+.cover-ttl{font-size:17px;font-weight:600;color:#fff;letter-spacing:0.14em;margin-bottom:1px;text-shadow:1px 1px 4px rgba(0,0,0,0.5);}
+.cover-sub{font-size:9px;color:rgba(255,255,255,0.45);letter-spacing:0.2em;font-family:var(--fu);text-transform:uppercase;margin-bottom:10px;}
+.cover-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+.cf{background:rgba(0,0,0,0.18);border-radius:2px;padding:5px 8px;}
+.cf-lbl{font-size:9px;color:rgba(255,255,255,0.4);font-family:var(--fu);margin-bottom:2px;}
+.cf-inp{background:none;border:none;border-bottom:1px solid rgba(255,255,255,0.22);
+  color:#fff;font-family:var(--fh);font-size:13px;width:100%;padding:0 2px;}
+.cf-inp:focus{outline:none;border-bottom-color:rgba(255,255,255,0.7);}
+.cf-inp::placeholder{color:rgba(255,255,255,0.22);}
+
+/* ===== テーブル =====
+   列: 測点(固定) | FS | BS | IH | KBM | GH
+   赤縦線: 左端・FS|BS間・BS|IH間・IH|KBM間
+*/
+.tbl-outer{
+  border-left:2px solid var(--red-rule);
+  border-right:1px solid var(--grid-d);
+  overflow:hidden;
+}
+
+/* ヘッダー */
+.tbl-head{
+  display:flex;
+  background:var(--paper3);
+  border-bottom:2.5px solid var(--ink2);
+  border-top:1px solid var(--grid-d);
+}
+.th{
+  padding:5px 3px;font-size:10px;font-weight:600;
+  color:var(--ink2);text-align:center;line-height:1.3;
+  font-family:var(--fu);flex-shrink:0;
+}
+.th small{font-size:8px;color:var(--muted);display:block;font-weight:400;}
+
+/* 幅定義 */
+.w-pt {width:34px;border-right:1px solid var(--grid-d);}
+.w-fs {width:16%;border-left:2px solid var(--red-rule);}
+.w-bs {width:16%;border-left:2px solid var(--red-rule);}
+.w-ih {width:20%;border-left:2px solid var(--red-rule);}
+.w-kbm{width:20%;border-left:2px solid var(--red-rule);}
+.w-gh {width:calc(100% - 34px - 16% - 16% - 20% - 20%);border-left:1px solid var(--grid-d);}
+
+/* 行ブロック */
+.row-block{border-bottom:1px solid var(--grid);position:relative;}
+.row-block.bm{background:rgba(26,58,138,0.045);}
+.row-block.tp{background:rgba(160,70,0,0.045);}
+
+.type-mark{position:absolute;left:0;top:0;bottom:0;width:3px;z-index:2;}
+.bm .type-mark{background:var(--blue);}
+.tp .type-mark{background:var(--orange);}
+
+/* データ行 */
+.data-row{display:flex;min-height:44px;align-items:stretch;}
+
+.cell{display:flex;flex-direction:column;justify-content:center;padding:2px 3px;flex-shrink:0;}
+
+/* 測点入力 */
+.inp-pt{
+  background:none;border:none;width:100%;
+  font-family:var(--fh);color:var(--ink2);
+  font-size:11px;text-align:center;padding:1px 2px;
+}
+.inp-pt:focus{outline:none;background:rgba(45,90,27,0.1);border-radius:2px;}
+.inp-pt::placeholder{color:var(--grid);font-size:10px;}
+.pt-type{font-size:8px;color:var(--muted);text-align:center;font-family:var(--fu);}
+
+/* 数値入力 */
+.inp{
+  background:none;border:none;width:100%;
+  font-family:var(--fh);font-size:15px;font-weight:600;
+  text-align:right;padding:2px 4px;-webkit-appearance:none;
+}
+.inp:focus{outline:none;background:rgba(45,90,27,0.08);border-radius:2px;}
+.inp::placeholder{color:rgba(180,168,148,0.6);font-weight:400;}
+.inp:disabled{opacity:0.18;pointer-events:none;}
+.inp.fs {color:var(--red-v);}
+.inp.bs {color:var(--blue);}
+.inp.ih {color:var(--green);font-style:italic;}
+.inp.kbm{color:var(--blue);font-style:italic;}
+.inp.gh {color:var(--green);font-weight:700;}
+.inp.ro {pointer-events:none;}
+.inp.known{color:var(--blue);}
+
+/* 追加ボタン */
+.add-strip{
+  display:flex;
+  border-top:2px solid var(--ink2);
+  border-bottom:2px solid var(--ink2);
+  background:var(--paper2);
+}
+.add-btn{
+  flex:1;padding:9px 4px;
+  background:none;border:none;border-right:1px solid var(--grid);
+  font-size:12px;color:var(--muted);cursor:pointer;
+  font-family:var(--fu);line-height:1.3;transition:background 0.1s;
+}
+.add-btn:last-child{border-right:none;}
+.add-btn:active{background:var(--paper3);}
+.add-btn b{color:var(--ink2);display:block;font-size:13px;}
+
+/* 集計 */
+.sum-sec{padding:12px 12px 8px;border-top:1px solid var(--grid-d);}
+.sum-ttl{font-size:11px;font-weight:600;color:var(--ink2);letter-spacing:0.1em;
+  font-family:var(--fu);margin-bottom:8px;padding-bottom:4px;
+  border-bottom:1px solid var(--grid-d);}
+.sum-grid{display:grid;grid-template-columns:1fr 1fr;border:1.5px solid var(--ink2);}
+.sc{padding:6px 8px;border-right:1px solid var(--grid);border-bottom:1px solid var(--grid);
+  display:flex;flex-direction:column;gap:2px;}
+.sc:nth-child(even){border-right:none;}
+.sc:nth-last-child(-n+2){border-bottom:none;}
+.sc-lbl{font-size:9px;color:var(--muted);font-family:var(--fu);}
+.sc-val{font-size:18px;font-weight:600;font-family:var(--fh);color:var(--ink);}
+.sc-val.blue{color:var(--blue);}
+.sc-val.red{color:var(--red-v);}
+.sc-val.green{color:var(--green);}
+
+.diff-row{
+  margin-top:8px;display:flex;align-items:center;justify-content:space-between;
+  padding:7px 10px;background:var(--paper2);
+  border:1px solid var(--grid-d);border-radius:2px;
+}
+.diff-lbl{font-size:10px;color:var(--muted);font-family:var(--fu);}
+.diff-val{font-size:15px;font-weight:600;font-family:var(--fh);}
+
+.tol-row{
+  display:flex;align-items:center;gap:5px;flex-wrap:wrap;
+  padding:8px 12px;font-size:11px;color:var(--muted);font-family:var(--fu);
+  border-top:1px dashed var(--grid);
+}
+.tol-inp{
+  background:none;border:none;border-bottom:1px solid var(--grid-d);
+  font-family:var(--fh);font-size:14px;color:var(--ink);
+  width:48px;text-align:right;padding:0 2px;-webkit-appearance:none;
+}
+.tol-inp:focus{outline:none;border-bottom-color:var(--green);}
+
+.err-sec{padding:8px 12px 12px;}
+.err-box{
+  border:2px solid var(--grid);border-radius:3px;
+  padding:10px 14px;display:none;align-items:center;gap:10px;
+}
+.err-box.show{display:flex;}
+.err-box.ok  {border-color:var(--green);background:rgba(26,96,48,0.07);}
+.err-box.warn{border-color:var(--orange);background:rgba(160,70,0,0.07);}
+.err-box.ng  {border-color:var(--red-v);background:rgba(176,32,32,0.07);}
+.err-stamp{
+  width:36px;height:36px;border-radius:50%;border:2.5px solid;
+  display:flex;align-items:center;justify-content:center;
+  font-size:15px;font-weight:600;flex-shrink:0;font-family:var(--fh);
+}
+.err-box.ok   .err-stamp{border-color:var(--green);color:var(--green);}
+.err-box.warn .err-stamp{border-color:var(--orange);color:var(--orange);}
+.err-box.ng   .err-stamp{border-color:var(--red-v);color:var(--red-v);}
+.err-txt{font-size:13px;color:var(--ink2);line-height:1.6;font-family:var(--fh);}
+.err-txt small{font-size:10px;color:var(--muted);font-family:var(--fu);display:block;}
+
+/* 行メニュー */
+.row-menu{
+  position:fixed;z-index:500;display:none;
+  background:var(--paper);border:1px solid var(--ink2);
+  border-radius:4px;box-shadow:3px 5px 18px rgba(0,0,0,0.28);
+  overflow:hidden;min-width:165px;
+}
+.row-menu.show{display:block;}
+.mitem{
+  padding:11px 18px;font-size:13px;cursor:pointer;
+  font-family:var(--fu);color:var(--ink2);
+  border-bottom:0.5px solid var(--grid);
+  display:flex;align-items:center;gap:8px;
+}
+.mitem:last-child{border-bottom:none;}
+.mitem:active{background:var(--paper2);}
+.mitem.del{color:var(--red-v);}
+
+/* 下部バー */
+.btm-bar{
+  position:fixed;bottom:0;left:50%;transform:translateX(-50%);
+  width:100%;max-width:420px;
+  background:var(--cover);border-top:3px solid #1a3a0e;
+  padding:10px 12px max(env(safe-area-inset-bottom),10px);
+  display:flex;gap:8px;padding-left:38px;
+}
+.bbtn{
+  flex:1;padding:13px;border-radius:3px;
+  border:1.5px solid rgba(255,255,255,0.25);
+  background:rgba(255,255,255,0.1);color:#fff;
+  font-size:14px;font-weight:600;cursor:pointer;
+  font-family:var(--fu);letter-spacing:0.04em;
+}
+.bbtn:active{background:rgba(255,255,255,0.22);}
+.bbtn.pri{background:rgba(255,255,255,0.88);color:var(--cover);}
+.bbtn.pri:active{background:#fff;}
+.spacer{height:80px;}
+</style>
+</head>
+<body>
+<div class="spine"><span class="spine-txt">水準測量野帳　FIELD BOOK</span></div>
+<div class="content">
+
+<!-- 表紙 -->
+<div class="cover">
+  <div class="cover-ttl">水準測量　野帳</div>
+  <div class="cover-sub">Leveling Field Book — 器械高式</div>
+  <div class="cover-grid">
+    <div class="cf"><div class="cf-lbl">工事名・路線名</div><input class="cf-inp" id="m-name" type="text" placeholder="○○工事"></div>
+    <div class="cf"><div class="cf-lbl">測量年月日</div><input class="cf-inp" id="m-date" type="date"></div>
+    <div class="cf"><div class="cf-lbl">担当者</div><input class="cf-inp" id="m-person" type="text" placeholder="氏名"></div>
+    <div class="cf"><div class="cf-lbl">天気</div><input class="cf-inp" id="m-weather" type="text" placeholder="晴・曇・雨"></div>
+  </div>
+</div>
+
+<!-- テーブル -->
+<div class="tbl-outer">
+  <div class="tbl-head">
+    <div class="th w-pt">測点</div>
+    <div class="th w-fs">FS<small>前視(m)</small></div>
+    <div class="th w-bs">BS<small>後視(m)</small></div>
+    <div class="th w-ih">IH<small>器械高(m)</small></div>
+    <div class="th w-kbm">KBM<small>既知高(m)</small></div>
+    <div class="th w-gh">GH<small>地盤高(m)</small></div>
+  </div>
+  <div id="row-list"></div>
+</div>
+
+<div class="add-strip">
+  <button class="add-btn" onclick="addRow('bm')"><b>＋BM</b>後視点</button>
+  <button class="add-btn" onclick="addRow('tp')"><b>＋TP</b>移器点</button>
+  <button class="add-btn" onclick="addRow('ip')"><b>＋IP</b>中間点</button>
+</div>
+
+<!-- 集計 -->
+<div class="sum-sec">
+  <div class="sum-ttl">▌ 集計・検算</div>
+  <div class="sum-grid">
+    <div class="sc"><div class="sc-lbl">ΣBS 後視合計</div><div class="sc-val blue" id="s-bs">—</div></div>
+    <div class="sc"><div class="sc-lbl">ΣFS 前視合計</div><div class="sc-val red"  id="s-fs">—</div></div>
+    <div class="sc"><div class="sc-lbl">始点地盤高</div><div class="sc-val"         id="s-gh0">—</div></div>
+    <div class="sc"><div class="sc-lbl">終点地盤高</div><div class="sc-val green"   id="s-ghn">—</div></div>
+  </div>
+  <div class="diff-row">
+    <span class="diff-lbl">高低差検算　ΣBS－ΣFS</span>
+    <span class="diff-val" id="s-diff">—</span>
+  </div>
+</div>
+
+<div class="tol-row">
+  許容誤差：<input class="tol-inp" type="number" id="tol-v" value="10" min="0"> mm ×
+  √<input class="tol-inp" type="number" id="tol-n" value="1" min="1" style="width:36px"> 区間
+</div>
+<div class="err-sec"><div class="err-box" id="err-box"></div></div>
+<div class="spacer"></div>
+</div>
+
+<!-- 行メニュー -->
+<div class="row-menu" id="row-menu">
+  <div class="mitem" onclick="mSet('bm')">🔵 BM / 後視点</div>
+  <div class="mitem" onclick="mSet('tp')">🟠 TP 移器点</div>
+  <div class="mitem" onclick="mSet('ip')">⚪ IP 中間点</div>
+  <div class="mitem del" onclick="mDel()">✕ この行を削除</div>
+</div>
+
+<div class="btm-bar">
+  <button class="bbtn" onclick="clearAll()">リセット</button>
+  <button class="bbtn pri" onclick="recalc()">計算・検算</button>
+</div>
+
+<script>
+let rows=[], idc=0, mId=null;
+
+function init(){
+  document.getElementById('m-date').value=new Date().toISOString().split('T')[0];
+  addRow('bm'); addRow('ip'); addRow('tp');
+}
+
+function addRow(type){
+  rows.push({id:idc++,type,pt:'',fs:'',bs:'',kbm:'',gh:'',ih:null});
+  render();
+}
+function removeRow(id){
+  if(rows.length<=2)return;
+  rows=rows.filter(r=>r.id!==id);render();
+}
+function setType(id,t){
+  const r=rows.find(r=>r.id===id);if(!r)return;
+  r.type=t;
+  if(t==='ip'){r.bs='';} // IPはFS(中間視)のみ
+  render();
+}
+function upd(id,f,v){const r=rows.find(r=>r.id===id);if(r)r[f]=v;}
+
+function render(){
+  const list=document.getElementById('row-list');
+  list.innerHTML='';
+  rows.forEach((r,i)=>{
+    const isBm=r.type==='bm', isTp=r.type==='tp', isIp=r.type==='ip';
+    const isFirst=isBm&&i===0;
+    const blk=document.createElement('div');
+    blk.className='row-block '+(isBm?'bm':isTp?'tp':'');
+    blk.dataset.id=r.id;
+
+    const ptPh=isBm?'BM':isTp?'TP':'No.'+(i);
+    // KBM欄：BMのときだけ入力可（既知BM高）
+    const kbmDisabled=(!isBm)||'';
+
+    blk.innerHTML=`
+      <div class="type-mark"></div>
+      <div class="data-row">
+        <div class="cell w-pt" style="background:var(--paper2)">
+          <input class="inp-pt" type="text" placeholder="${ptPh}" value="${r.pt}"
+            oninput="upd(${r.id},'pt',this.value)">
+          <div class="pt-type">${isBm?'BM':isTp?'TP':isIp?'IP':''}</div>
+        </div>
+        <div class="cell w-fs">
+          <input class="inp fs" type="number" inputmode="decimal" placeholder="—" value="${r.fs}"
+            ${isFirst?'disabled':''}
+            oninput="upd(${r.id},'fs',this.value)">
+        </div>
+        <div class="cell w-bs">
+          <input class="inp bs" type="number" inputmode="decimal" placeholder="—" value="${r.bs}"
+            ${isIp?'disabled':''}
+            oninput="upd(${r.id},'bs',this.value)">
+        </div>
+        <div class="cell w-ih">
+          <input class="inp ih ro" id="ih-${r.id}" type="text" placeholder="—"
+            value="${r.ih!==null?r.ih.toFixed(3):''}" readonly>
+        </div>
+        <div class="cell w-kbm">
+          <input class="inp kbm${isFirst?' known':' ro'}" id="kbm-${r.id}"
+            type="number" inputmode="decimal" placeholder="${isBm?'—':'—'}"
+            value="${r.kbm!==''?r.kbm:''}"
+            ${!isBm?'disabled style="opacity:0.15"':''}
+            ${isBm?`oninput="upd(${r.id},'kbm',this.value)"`:''}>
+        </div>
+        <div class="cell w-gh">
+          <input class="inp gh ro" id="gh-${r.id}" type="text" placeholder="—"
+            value="${r.gh!==''?r.gh:''}" readonly>
+        </div>
+      </div>`;
+
+    // 長押し
+    let pt;
+    blk.addEventListener('contextmenu',e=>{e.preventDefault();showMenu(r.id,e);});
+    blk.addEventListener('touchstart',e=>{pt=setTimeout(()=>showMenu(r.id,e.touches[0]),600);},{passive:true});
+    blk.addEventListener('touchend',()=>clearTimeout(pt));
+    blk.addEventListener('touchmove',()=>clearTimeout(pt));
+
+    list.appendChild(blk);
+  });
+}
+
+function r3(v){return Math.round(v*1000)/1000;}
+
+function recalc(){
+  let ih=null, sumBS=0, sumFS=0, bc=0, fc=0;
+  let gh0=null, ghn=null;
+
+  rows.forEach((r,i)=>{
+    r.ih=null; r.gh='';
+    const isBm=r.type==='bm', isTp=r.type==='tp', isIp=r.type==='ip';
+    const isFirst=isBm&&i===0;
+
+    if(isBm){
+      // KBM欄に既知高が入っていれば使う
+      const kbmV=parseFloat(document.getElementById('kbm-'+r.id)?.value);
+      if(isFirst){
+        // 始点BM: KBM=既知地盤高
+        if(!isNaN(kbmV)){r.gh=kbmV; gh0=kbmV; ghn=kbmV;}
+      } else {
+        // 途中BM: FSから地盤高を計算、かつKBMが入っていれば照合用
+        const fs=parseFloat(r.fs);
+        if(ih!==null&&!isNaN(fs)){r.gh=r3(ih-fs);sumFS+=fs;fc++;}
+        // KBMが入力されていれば上書き（既知点）
+        if(!isNaN(kbmV)){r.gh=kbmV;}
+        ghn=r.gh!==''?r.gh:ghn;
+      }
+      // BS→IH
+      const bs=parseFloat(r.bs);
+      if(!isNaN(bs)&&r.gh!==''){
+        ih=r3(parseFloat(r.gh)+bs);r.ih=ih;sumBS+=bs;bc++;
+      }
+      // KBM更新
+      if(r.gh!=='')r.kbm=r.gh;
+
+    } else if(isTp){
+      const fs=parseFloat(r.fs), bs=parseFloat(r.bs);
+      if(ih!==null&&!isNaN(fs)){r.gh=r3(ih-fs);sumFS+=fs;fc++;}
+      if(!isNaN(bs)&&r.gh!==''){ih=r3(parseFloat(r.gh)+bs);r.ih=ih;sumBS+=bs;bc++;}
+      ghn=r.gh!==''?r.gh:ghn;
+
+    } else { // IP
+      const fsv=parseFloat(r.fs);
+      if(ih!==null&&!isNaN(fsv)){r.gh=r3(ih-fsv);}
+      ghn=r.gh!==''?r.gh:ghn;
+    }
+
+    // DOM反映
+    const ghEl=document.getElementById('gh-'+r.id);
+    const ihEl=document.getElementById('ih-'+r.id);
+    if(ghEl) ghEl.value=r.gh!==''?r.gh:'';
+    if(ihEl) ihEl.value=r.ih!==null?r.ih.toFixed(3):'';
+  });
+
+  const diff=bc&&fc?r3(sumBS-sumFS):null;
+  document.getElementById('s-bs').textContent=bc?sumBS.toFixed(3):'—';
+  document.getElementById('s-fs').textContent=fc?sumFS.toFixed(3):'—';
+  document.getElementById('s-gh0').textContent=gh0!==null?parseFloat(gh0).toFixed(3):'—';
+  document.getElementById('s-ghn').textContent=ghn!==null?parseFloat(ghn).toFixed(3):'—';
+  document.getElementById('s-diff').textContent=diff!==null?diff.toFixed(3)+' m':'—';
+
+  const eb=document.getElementById('err-box');
+  if(gh0!==null&&ghn!==null&&diff!==null){
+    const ad=r3(parseFloat(ghn)-parseFloat(gh0));
+    const em=r3((diff-ad)*1000);
+    const tv=parseFloat(document.getElementById('tol-v').value)||10;
+    const tn=parseFloat(document.getElementById('tol-n').value)||1;
+    const tol=r3(tv*Math.sqrt(tn));
+    const abs=Math.abs(em);
+    const cls=abs<=tol?'ok':abs<=tol*1.5?'warn':'ng';
+    const icon=cls==='ok'?'良':cls==='warn'?'△':'否';
+    eb.className='err-box show '+cls;
+    eb.innerHTML=`<div class="err-stamp">${icon}</div><div class="err-txt">閉合差　${em>=0?'+':''}${em.toFixed(1)} mm<small>許容誤差 ±${tol.toFixed(1)} mm（${tv}×√${tn}）</small></div>`;
+  } else { eb.className='err-box'; }
+}
+
+function showMenu(id,e){
+  mId=id;
+  const m=document.getElementById('row-menu');
+  m.classList.add('show');
+  const x=Math.min((e.clientX||e.pageX||200),window.innerWidth-175);
+  const y=Math.min((e.clientY||e.pageY||200),window.innerHeight-195);
+  m.style.left=x+'px';m.style.top=y+'px';
+}
+function mSet(t){if(mId!==null)setType(mId,t);hideMenu();}
+function mDel(){if(mId!==null)removeRow(mId);hideMenu();}
+function hideMenu(){document.getElementById('row-menu').classList.remove('show');mId=null;}
+document.addEventListener('click',e=>{if(!e.target.closest('#row-menu'))hideMenu();});
+
+function clearAll(){
+  if(!confirm('野帳をリセットしますか？'))return;
+  rows=[];idc=0;
+  ['s-bs','s-fs','s-gh0','s-ghn','s-diff'].forEach(id=>document.getElementById(id).textContent='—');
+  document.getElementById('err-box').className='err-box';
+  init();
+}
+
+init();
+</script>
+</body>
+</html>
