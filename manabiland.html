@@ -573,11 +573,10 @@ function handleAnswer(choice){
       }
     },1050);
   } else {
-    // 不正解: まずボタンだけ表示してからAI解説を取得
-    setState({selected:choice,shake:true,explanation:null,loadingExp:false,pendingScore:newScore});
+    // 不正解: 解き方ヒントを取得してから一度にsetState
+    var hint = HINTS[S.subject] && HINTS[S.subject][S.grade] ? HINTS[S.subject][S.grade] : "ゆっくり問題を読んで、もう一度考えてみよう！";
+    setState({selected:choice,shake:true,explanation:hint,loadingExp:false,pendingScore:newScore});
     setTimeout(function(){setState({shake:false});},450);
-    // 解き方ヒントをすぐ表示
-    fetchExplanation(q.q, q.a, choice);
   }
 }
 
