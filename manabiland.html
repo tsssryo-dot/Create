@@ -585,6 +585,7 @@ function renderQuiz(){
   var gi=GRADES.find(function(g){return g.grade===S.grade;});
   var q=S.questions[S.qIndex];
   var prog=(S.qIndex/S.questions.length)*100;
+  var hint=HINTS[S.subject]&&HINTS[S.subject][S.grade]?HINTS[S.subject][S.grade]:"ゆっくり問題を読んでもう一度考えてみよう！";
 
   var wrap=d("min-height:100vh;background:"+subj.light+";display:flex;flex-direction:column;padding:20px;max-width:480px;margin:0 auto;",null);
 
@@ -592,15 +593,16 @@ function renderQuiz(){
   var tb=d("display:flex;align-items:center;gap:10px;margin-bottom:16px;",[
     h("button",{style:"background:white;border:none;border-radius:10px;padding:7px 12px;font-size:18px;",onclick:function(){setState({screen:"home"});}},["←"]),
     d("flex:1;",[
-      d("display:flex;justify-content:space-between;margin-bottom:5px;font-size:12px;font-weight:700;color:#666;",[gi.emoji+gi.label+" "+subj.emoji+subj.label, (S.qIndex+1)+" / "+S.questions.length]),
+      d("display:flex;justify-content:space-between;margin-bottom:5px;font-size:12px;font-weight:700;color:#666;",[gi.emoji+gi.label+" "+subj.emoji+subj.label,(S.qIndex+1)+" / "+S.questions.length]),
       d("background:#e0e0e0;border-radius:99px;height:9px;overflow:hidden;",[
-        d("width:"+prog+"%;height:100%;background:linear-gradient(90deg,"+subj.color+","+subj.color+"bb);border-radius:99px;transition:width .4s;",null)
+        d("width:"+prog+"%;height:100%;background:"+subj.color+";border-radius:99px;",null)
       ])
     ])
   ]);
   wrap.appendChild(tb);
   wrap.appendChild(d("text-align:right;font-size:13px;font-weight:700;color:"+subj.color+";margin-bottom:12px;",["⭐ "+S.score+"てん"]));
 
+  // question card
   var qcard=d("background:white;border-radius:22px;padding:28px 20px;box-shadow:0 8px 28px "+subj.color+"30;text-align:center;margin-bottom:20px;border:3px solid "+subj.color+"22;",[
     d("font-size:36px;margin-bottom:10px;",[subj.emoji]),
     d("font-size:19px;font-weight:900;color:#222;line-height:1.6;",[q.q])
@@ -608,6 +610,7 @@ function renderQuiz(){
   qcard.className=S.shake?"shake":"pop";
   wrap.appendChild(qcard);
 
+  // choices
   var grid=d("display:grid;grid-template-columns:1fr 1fr;gap:10px;",null);
   q.choices.forEach(function(choice,i){
     var bg="white",border="3px solid "+subj.color+"44",color="#333";
@@ -615,17 +618,18 @@ function renderQuiz(){
       if(choice===q.a){bg="#4ECDC4";color="white";border="3px solid #4ECDC4";}
       else if(S.selected===choice){bg="#FF6B6B";color="white";border="3px solid #FF6B6B";}
     }
-    var prefix=S.selected===choice&&choice===q.a?"✅ ":S.selected===choice?"❌ ":"";
+    var label=(S.selected===choice&&choice===q.a?"✅ ":S.selected===choice?"❌ ":"")+choice;
     var btn=h("button",{
       class:"hbtn",
-      style:"background:"+bg+";border:"+border+";border-radius:14px;padding:16px 10px;font-size:16px;font-weight:700;color:"+color+";box-shadow:0 3px 10px rgba(0,0,0,.07);width:100%;animation:pop .32s "+(i*.06)+"s both;",
+      style:"background:"+bg+";border:"+border+";border-radius:14px;padding:16px 10px;font-size:16px;font-weight:700;color:"+color+";box-shadow:0 3px 10px rgba(0,0,0,.07);width:100%;",
       onclick:S.selected!==null?null:function(c){return function(){handleAnswer(c);};}(choice)
-    },[prefix+choice]);
+    },[label]);
     if(S.selected!==null)btn.disabled=true;
     grid.appendChild(btn);
   });
   wrap.appendChild(grid);
 
+  // result message + hint
   if(S.selected!==null){
     var correct=S.selected===q.a;
     var msg=d("margin-top:18px;text-align:center;font-size:19px;font-weight:900;color:"+(correct?"#4ECDC4":"#FF6B6B")+";",[
@@ -633,20 +637,24 @@ function renderQuiz(){
     ]);
     msg.className="pop";
     wrap.appendChild(msg);
-    // 不正解のとき解説＋次へボタンを表示
+
     if(!correct){
-      var hint=HINTS[S.subject]&&HINTS[S.subject][S.grade]?HINTS[S.subject][S.grade]:"ゆっくり問題を読んでもう一度考えてみよう！";
-      var expBox=d("margin-top:12px;background:white;border-radius:16px;padding:16px 18px;box-shadow:0 4px 16px rgba(0,0,0,.08);",[
+      var box=d("margin-top:12px;background:white;border-radius:16px;padding:16px 18px;box-shadow:0 4px 16px rgba(0,0,0,.08);",[
         d("font-size:13px;font-weight:700;color:#764ba2;margin-bottom:8px;",["💡 解き方のヒント"]),
         d("font-size:14px;color:#444;line-height:1.7;margin-bottom:14px;",[hint]),
-        h("button",{class:"hbtn",style:"background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:12px;padding:12px 24px;font-size:15px;font-weight:900;width:100%;",onclick:function(){nextQuestion();}},["つぎの もんだいへ →"])
+        h("button",{
+          class:"hbtn",
+          style:"background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:12px;padding:12px 24px;font-size:15px;font-weight:900;width:100%;",
+          onclick:function(){nextQuestion();}
+        },["つぎの もんだいへ →"])
       ]);
-      expBox.className="pop";
-      wrap.appendChild(expBox);
+      box.className="pop";
+      wrap.appendChild(box);
     }
   }
   return wrap;
 }
+
 
 function renderResult(){
   var subj=SUBJECTS.find(function(s){return s.id===S.subject;});
