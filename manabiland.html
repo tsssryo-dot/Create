@@ -471,7 +471,8 @@ async function fetchExplanation(question, correctAnswer, wrongAnswer){
     var txt=data.content.filter(function(b){return b.type==="text";}).map(function(b){return b.text;}).join("").trim();
     setState({explanation:txt, loadingExp:false});
   } catch(e) {
-    setState({explanation:"解説を取得できませんでした。", loadingExp:false});
+    // API使えない場合はボタンだけ残す
+    setState({explanation:null, loadingExp:false});
   }
 }
 
@@ -562,10 +563,14 @@ function handleAnswer(choice){
       }
     },1050);
   } else {
-    setState({selected:choice,shake:true,explanation:null,pendingScore:newScore});
+    // 不正解: まずボタンだけ表示してからAI解説を取得
+    setState({selected:choice,shake:true,explanation:null,loadingExp:false,pendingScore:newScore});
     setTimeout(function(){setState({shake:false});},450);
-    // AI解説を非同期で取得（不正解は手動で次へ）
-    fetchExplanation(q.q, q.a, choice);
+    // 少し待ってからAI解説取得開始
+    setTimeout(function(){
+      setState({loadingExp:true});
+      fetchExplanation(q.q, q.a, choice);
+    },300);
   }
 }
 
@@ -640,7 +645,7 @@ function renderQuiz(){
         expBox.className="pop";
         wrap.appendChild(expBox);
       } else {
-        // selectedがあるがまだloadingでもexplanationでもない（初期）
+        // まだ解説なし → ボタンだけ表示
         var expBox=d("margin-top:12px;background:white;border-radius:16px;padding:16px 18px;box-shadow:0 4px 16px rgba(0,0,0,.08);text-align:center;",[
           h("button",{class:"hbtn",style:"background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:12px;padding:12px 24px;font-size:15px;font-weight:900;width:100%;",onclick:function(){nextQuestion();}},["つぎの もんだいへ →"])
         ]);
