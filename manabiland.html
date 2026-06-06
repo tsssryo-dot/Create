@@ -635,29 +635,14 @@ function renderQuiz(){
     wrap.appendChild(msg);
     // 不正解のとき解説＋次へボタンを表示
     if(!correct){
-      if(S.loadingExp){
-        var expBox=d("margin-top:12px;background:white;border-radius:16px;padding:16px 18px;box-shadow:0 4px 16px rgba(0,0,0,.08);text-align:center;",[
-          d("font-size:14px;color:#888;",["✨ AIが解説を考えています…"]),
-          h("button",{class:"hbtn",style:"margin-top:14px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:12px;padding:12px 24px;font-size:15px;font-weight:900;width:100%;",onclick:function(){nextQuestion();}},["つぎの もんだいへ →"])
-        ]);
-        expBox.className="pop";
-        wrap.appendChild(expBox);
-      } else if(S.explanation){
-        var expBox=d("margin-top:12px;background:white;border-radius:16px;padding:16px 18px;box-shadow:0 4px 16px rgba(0,0,0,.08);",[
-          d("font-size:13px;font-weight:700;color:#764ba2;margin-bottom:6px;",["💡 解説"]),
-          d("font-size:14px;color:#444;line-height:1.7;margin-bottom:14px;",[S.explanation]),
-          h("button",{class:"hbtn",style:"background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:12px;padding:12px 24px;font-size:15px;font-weight:900;width:100%;",onclick:function(){nextQuestion();}},["つぎの もんだいへ →"])
-        ]);
-        expBox.className="pop";
-        wrap.appendChild(expBox);
-      } else {
-        // まだ解説なし → ボタンだけ表示
-        var expBox=d("margin-top:12px;background:white;border-radius:16px;padding:16px 18px;box-shadow:0 4px 16px rgba(0,0,0,.08);text-align:center;",[
-          h("button",{class:"hbtn",style:"background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:12px;padding:12px 24px;font-size:15px;font-weight:900;width:100%;",onclick:function(){nextQuestion();}},["つぎの もんだいへ →"])
-        ]);
-        expBox.className="pop";
-        wrap.appendChild(expBox);
-      }
+      var hint=HINTS[S.subject]&&HINTS[S.subject][S.grade]?HINTS[S.subject][S.grade]:"ゆっくり問題を読んでもう一度考えてみよう！";
+      var expBox=d("margin-top:12px;background:white;border-radius:16px;padding:16px 18px;box-shadow:0 4px 16px rgba(0,0,0,.08);",[
+        d("font-size:13px;font-weight:700;color:#764ba2;margin-bottom:8px;",["💡 解き方のヒント"]),
+        d("font-size:14px;color:#444;line-height:1.7;margin-bottom:14px;",[hint]),
+        h("button",{class:"hbtn",style:"background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:12px;padding:12px 24px;font-size:15px;font-weight:900;width:100%;",onclick:function(){nextQuestion();}},["つぎの もんだいへ →"])
+      ]);
+      expBox.className="pop";
+      wrap.appendChild(expBox);
     }
   }
   return wrap;
