@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="まなびランド">
+<meta name="theme-color" content="#667eea">
+<title>まなびランド</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;font-family:'Hiragino Kaku Gothic ProN','Noto Sans JP',sans-serif;}
+body{background:#1a1a2e;overflow-x:hidden;}
+button{font-family:inherit;cursor:pointer;border:none;outline:none;}
+@keyframes pop{0%{transform:scale(.65) rotate(-4deg);opacity:0}100%{transform:scale(1) rotate(0);opacity:1}}
+@keyframes slideUp{from{transform:translateY(28px);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes wobble{0%,100%{transform:translateX(0)}25%{transform:translateX(-9px)}75%{transform:translateX(9px)}}
+@keyframes fall{to{transform:translateY(110vh) rotate(720deg);opacity:0;}}
+.pop{animation:pop .38s cubic-bezier(.34,1.56,.64,1) both;}
+.slideUp{animation:slideUp .45s ease both;}
+.shake{animation:wobble .38s ease;}
+#app{min-height:100vh;}
+#confetti{position:fixed;inset:0;pointer-events:none;z-index:1000;overflow:hidden;}
+</style>
+</head>
+<body>
+<div id="confetti"></div>
+<div id="app"></div>
+<script>
+// ── shuffle ──
+function shuffle(arr){const a=[...arr];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+
+// ── BANK ──
+const BANK={
+math:{
+1:[
+{q:"1 ＋ 2 ＝ ?",a:"3",w:["1","2","4"]},{q:"3 ＋ 4 ＝ ?",a:"7",w:["5","6","8"]},
+{q:"2 ＋ 5 ＝ ?",a:"7",w:["6","8","9"]},{q:"4 ＋ 4 ＝ ?",a:"8",w:["6","7","9"]},
+{q:"6 ＋ 3 ＝ ?",a:"9",w:["7","8","10"]},{q:"5 ＋ 5 ＝ ?",a:"10",w:["8","9","11"]},
+{q:"9 － 3 ＝ ?",a:"6",w:["4","5","7"]},{q:"8 － 5 ＝ ?",a:"3",w:["2","4","5"]},
+{q:"7 － 2 ＝ ?",a:"5",w:["3","4","6"]},{q:"10 － 4 ＝ ?",a:"6",w:["4","5","7"]},
+{q:"3 ＋ 6 ＝ ?",a:"9",w:["7","8","10"]},{q:"2 ＋ 7 ＝ ?",a:"9",w:["7","8","10"]},
+{q:"10 － 6 ＝ ?",a:"4",w:["3","5","6"]},{q:"1 ＋ 9 ＝ ?",a:"10",w:["8","9","11"]},
+{q:"9 － 5 ＝ ?",a:"4",w:["3","5","6"]},{q:"4 ＋ 3 ＝ ?",a:"7",w:["5","6","8"]},
+{q:"6 － 1 ＝ ?",a:"5",w:["3","4","6"]},{q:"5 － 3 ＝ ?",a:"2",w:["1","3","4"]},
+{q:"8 ＋ 1 ＝ ?",a:"9",w:["7","8","10"]},{q:"7 ＋ 2 ＝ ?",a:"9",w:["7","8","10"]}
+],
+2:[
+{q:"13 ＋ 24 ＝ ?",a:"37",w:["35","36","38"]},{q:"45 ＋ 32 ＝ ?",a:"77",w:["75","76","78"]},
+{q:"60 － 17 ＝ ?",a:"43",w:["41","42","44"]},{q:"50 － 23 ＝ ?",a:"27",w:["25","26","28"]},
+{q:"3 × 4 ＝ ?",a:"12",w:["9","10","15"]},{q:"6 × 3 ＝ ?",a:"18",w:["15","16","21"]},
+{q:"7 × 2 ＝ ?",a:"14",w:["12","13","16"]},{q:"8 × 3 ＝ ?",a:"24",w:["21","22","27"]},
+{q:"5 × 5 ＝ ?",a:"25",w:["20","24","30"]},{q:"4 × 7 ＝ ?",a:"28",w:["24","27","32"]},
+{q:"9 × 2 ＝ ?",a:"18",w:["16","17","20"]},{q:"6 × 4 ＝ ?",a:"24",w:["20","22","28"]},
+{q:"2 × 8 ＝ ?",a:"16",w:["12","14","18"]},{q:"7 × 3 ＝ ?",a:"21",w:["18","20","24"]},
+{q:"5 × 6 ＝ ?",a:"30",w:["25","28","35"]},{q:"9 × 3 ＝ ?",a:"27",w:["24","25","30"]},
+{q:"4 × 8 ＝ ?",a:"32",w:["28","30","36"]},{q:"6 × 6 ＝ ?",a:"36",w:["30","32","42"]},
+{q:"8 × 4 ＝ ?",a:"32",w:["28","30","36"]},{q:"7 × 7 ＝ ?",a:"49",w:["42","48","56"]}
+],
+3:[
+{q:"123 ＋ 456 ＝ ?",a:"579",w:["569","589","599"]},{q:"247 ＋ 315 ＝ ?",a:"562",w:["552","572","582"]},
+{q:"500 － 237 ＝ ?",a:"263",w:["253","273","283"]},{q:"700 － 485 ＝ ?",a:"215",w:["205","225","235"]},
+{q:"24 ÷ 6 ＝ ?",a:"4",w:["3","5","6"]},{q:"35 ÷ 7 ＝ ?",a:"5",w:["4","6","7"]},
+{q:"56 ÷ 8 ＝ ?",a:"7",w:["5","6","8"]},{q:"81 ÷ 9 ＝ ?",a:"9",w:["7","8","10"]},
+{q:"48 ÷ 6 ＝ ?",a:"8",w:["6","7","9"]},{q:"63 ÷ 7 ＝ ?",a:"9",w:["7","8","10"]},
+{q:"12 × 4 ＝ ?",a:"48",w:["44","46","52"]},{q:"15 × 3 ＝ ?",a:"45",w:["42","43","48"]},
+{q:"32 ÷ 4 ＝ ?",a:"8",w:["6","7","9"]},{q:"45 ÷ 5 ＝ ?",a:"9",w:["7","8","10"]},
+{q:"72 ÷ 8 ＝ ?",a:"9",w:["7","8","10"]},{q:"27 ÷ 3 ＝ ?",a:"9",w:["7","8","10"]},
+{q:"64 ÷ 8 ＝ ?",a:"8",w:["6","7","9"]},{q:"36 ÷ 4 ＝ ?",a:"9",w:["7","8","10"]},
+{q:"21 × 3 ＝ ?",a:"63",w:["60","61","66"]},{q:"11 × 6 ＝ ?",a:"66",w:["60","63","72"]}
+],
+4:[
+{q:"25 × 12 ＝ ?",a:"300",w:["280","290","310"]},{q:"36 × 11 ＝ ?",a:"396",w:["386","376","406"]},
+{q:"144 ÷ 12 ＝ ?",a:"12",w:["11","13","14"]},{q:"168 ÷ 14 ＝ ?",a:"12",w:["11","13","14"]},
+{q:"1/2 ＋ 1/2 ＝ ?",a:"1",w:["1/2","3/2","2"]},{q:"3/4 ＋ 1/4 ＝ ?",a:"1",w:["1/2","3/4","5/4"]},
+{q:"1/2 ＋ 1/4 ＝ ?",a:"3/4",w:["1/4","1/2","1"]},{q:"2.5 ＋ 1.5 ＝ ?",a:"4",w:["3","3.5","4.5"]},
+{q:"0.7 × 10 ＝ ?",a:"7",w:["0.07","0.7","70"]},{q:"1.2 × 10 ＝ ?",a:"12",w:["1.2","11","13"]},
+{q:"5.0 － 2.5 ＝ ?",a:"2.5",w:["2","3","3.5"]},{q:"3/5 ＋ 1/5 ＝ ?",a:"4/5",w:["2/5","3/5","1"]},
+{q:"7/8 － 3/8 ＝ ?",a:"4/8",w:["2/8","3/8","5/8"]},{q:"18 × 5 ＝ ?",a:"90",w:["80","85","95"]},
+{q:"14 × 6 ＝ ?",a:"84",w:["78","80","90"]},{q:"120 ÷ 15 ＝ ?",a:"8",w:["6","7","9"]},
+{q:"96 ÷ 12 ＝ ?",a:"8",w:["6","7","9"]},{q:"4/6 ＋ 1/6 ＝ ?",a:"5/6",w:["3/6","4/6","1"]},
+{q:"0.6 ＋ 0.4 ＝ ?",a:"1",w:["0.8","0.9","1.1"]},{q:"3.6 ＋ 2.4 ＝ ?",a:"6",w:["5","5.6","6.4"]}
+],
+5:[
+{q:"2/3 ＋ 1/6 ＝ ?",a:"5/6",w:["1/2","2/3","1"]},{q:"3/4 － 1/8 ＝ ?",a:"5/8",w:["1/4","3/8","7/8"]},
+{q:"0.6 × 0.4 ＝ ?",a:"0.24",w:["0.024","2.4","24"]},{q:"1.2 × 2.5 ＝ ?",a:"3",w:["2.5","3.5","4"]},
+{q:"底辺8cm 高さ5cm の三角形の面積は？",a:"20cm²",w:["16cm²","40cm²","80cm²"]},
+{q:"縦6cm 横4cm の長方形の面積は？",a:"24cm²",w:["20cm²","22cm²","28cm²"]},
+{q:"60 の 20% は？",a:"12",w:["6","10","15"]},{q:"80 の 25% は？",a:"20",w:["15","16","25"]},
+{q:"3/4 ÷ 3 ＝ ?",a:"1/4",w:["1/3","1/2","3/4"]},{q:"2/5 × 5 ＝ ?",a:"2",w:["1","3","4"]},
+{q:"1辺5cm の正方形の面積は？",a:"25cm²",w:["20cm²","30cm²","35cm²"]},
+{q:"50 の 10% は？",a:"5",w:["2","10","15"]},{q:"100 の 35% は？",a:"35",w:["25","30","40"]},
+{q:"1.5 × 4 ＝ ?",a:"6",w:["4","5","8"]},{q:"2.4 ÷ 4 ＝ ?",a:"0.6",w:["0.4","0.8","1.2"]},
+{q:"5/6 － 1/3 ＝ ?",a:"1/2",w:["1/4","1/3","2/3"]},{q:"1/4 ＋ 3/8 ＝ ?",a:"5/8",w:["1/4","3/8","7/8"]},
+{q:"200 の 15% は？",a:"30",w:["20","25","40"]},
+{q:"底辺10cm 高さ6cm の三角形の面積は？",a:"30cm²",w:["20cm²","40cm²","60cm²"]},
+{q:"縦7cm 横8cm の長方形の面積は？",a:"56cm²",w:["48cm²","50cm²","64cm²"]}
+],
+6:[
+{q:"半径5cm の円の面積（π≒3.14）は？",a:"78.5cm²",w:["31.4cm²","62.8cm²","94.2cm²"]},
+{q:"半径3cm の円の面積（π≒3.14）は？",a:"28.26cm²",w:["18.84cm²","37.68cm²","56.52cm²"]},
+{q:"3/4 × 2/3 ＝ ?",a:"1/2",w:["1/4","1/3","2/3"]},{q:"5/6 ÷ 5/12 ＝ ?",a:"2",w:["1/2","1","3"]},
+{q:"2:3 ＝ 8:? の?は？",a:"12",w:["9","10","15"]},{q:"3:4 ＝ 9:? の?は？",a:"12",w:["10","11","16"]},
+{q:"時速60km で2時間走ると？",a:"120km",w:["60km","90km","150km"]},
+{q:"120km を4時間で走ると時速は？",a:"30km/h",w:["20km/h","40km/h","60km/h"]},
+{q:"x＝3 のとき 2x＋1 は？",a:"7",w:["5","6","8"]},{q:"x＝4 のとき 3x－2 は？",a:"10",w:["8","9","12"]},
+{q:"120 の15% は？",a:"18",w:["12","15","21"]},{q:"200 の35% は？",a:"70",w:["50","60","80"]},
+{q:"底面積20cm² 高さ6cm の角柱の体積は？",a:"120cm³",w:["80cm³","100cm³","160cm³"]},
+{q:"1辺4cm の立方体の体積は？",a:"64cm³",w:["48cm³","56cm³","96cm³"]},
+{q:"4:5 ＝ 20:? の?は？",a:"25",w:["16","20","30"]},
+{q:"時速90km で1.5時間走ると？",a:"135km",w:["90km","120km","150km"]},
+{q:"x＝5 のとき 4x－3 は？",a:"17",w:["15","16","20"]},
+{q:"半径10cm の円周（π≒3.14）は？",a:"62.8cm",w:["31.4cm","94.2cm","125.6cm"]},
+{q:"5/8 ＋ 3/4 ＝ ?",a:"11/8",w:["7/8","9/8","13/8"]},
+{q:"7/6 － 2/3 ＝ ?",a:"1/2",w:["1/4","1/3","2/3"]}
+]},
+japanese:{
+1:[
+{q:"「き」を漢字で書くと？",a:"木",w:["本","林","森"]},{q:"「やま」を漢字で書くと？",a:"山",w:["川","田","石"]},
+{q:"「ひ」を漢字で書くと？",a:"火",w:["水","土","木"]},{q:"「みず」を漢字で書くと？",a:"水",w:["川","池","海"]},
+{q:"「つき」を漢字で書くと？",a:"月",w:["日","星","空"]},{q:"「いぬ」を漢字で書くと？",a:"犬",w:["猫","鳥","魚"]},
+{q:"「くち」を漢字で書くと？",a:"口",w:["目","耳","手"]},{q:"「て」を漢字で書くと？",a:"手",w:["足","目","口"]},
+{q:"「おおきい」の反対は？",a:"小さい",w:["細い","低い","軽い"]},{q:"「うえ」の反対は？",a:"下",w:["右","左","中"]},
+{q:"「あか」を漢字で書くと？",a:"赤",w:["青","白","黒"]},{q:"「あお」を漢字で書くと？",a:"青",w:["赤","白","黒"]},
+{q:"「ひと」を漢字で書くと？",a:"人",w:["子","女","男"]},{q:"「はな」を漢字で書くと？",a:"花",w:["草","木","葉"]},
+{q:"「かわ」を漢字で書くと？",a:"川",w:["山","田","海"]},{q:"「そら」を漢字で書くと？",a:"空",w:["雲","星","月"]},
+{q:"「しろ」を漢字で書くと？",a:"白",w:["赤","青","黒"]},{q:"「たのしい」の反対は？",a:"つまらない",w:["うれしい","かなしい","こわい"]},
+{q:"「あたらしい」の反対は？",a:"ふるい",w:["わるい","ちいさい","くらい"]},
+{q:"「はやい」の反対は？",a:"おそい",w:["つよい","おおきい","たかい"]}
+],
+2:[
+{q:"「はる」を漢字で書くと？",a:"春",w:["夏","秋","冬"]},{q:"「なつ」を漢字で書くと？",a:"夏",w:["春","秋","冬"]},
+{q:"「あき」を漢字で書くと？",a:"秋",w:["春","夏","冬"]},{q:"「ふゆ」を漢字で書くと？",a:"冬",w:["春","夏","秋"]},
+{q:"「うみ」を漢字で書くと？",a:"海",w:["川","池","湖"]},{q:"「そら」を漢字で書くと？",a:"空",w:["雲","星","月"]},
+{q:"「ちから」を漢字で書くと？",a:"力",w:["刀","万","勝"]},{q:"「あたま」を漢字で書くと？",a:"頭",w:["顔","首","体"]},
+{q:"「とり」を漢字で書くと？",a:"鳥",w:["魚","虫","犬"]},{q:"「さかな」を漢字で書くと？",a:"魚",w:["鳥","虫","犬"]},
+{q:"「きた」を漢字で書くと？",a:"北",w:["南","東","西"]},{q:"「みなみ」を漢字で書くと？",a:"南",w:["北","東","西"]},
+{q:"「あめ」を漢字で書くと？",a:"雨",w:["雪","風","雲"]},{q:"「かぜ」を漢字で書くと？",a:"風",w:["雨","雪","雲"]},
+{q:"「おんがく」を漢字で書くと？",a:"音楽",w:["音声","楽器","音色"]},
+{q:"「べんきょう」を漢字で書くと？",a:"勉強",w:["勉学","強力","学力"]},
+{q:"「ちず」を漢字で書くと？",a:"地図",w:["地形","図面","地面"]},
+{q:"「こえ」を漢字で書くと？",a:"声",w:["音","歌","言"]},
+{q:"「あし」を漢字で書くと？",a:"足",w:["手","顔","頭"]},
+{q:"「かみ」を漢字で書くと？",a:"紙",w:["神","髪","上"]}
+],
+3:[
+{q:"「悲しい」の読みは？",a:"かなしい",w:["くるしい","さびしい","つらい"]},
+{q:"「進む」の読みは？",a:"すすむ",w:["のぞむ","きわむ","つとむ"]},
+{q:"「落ちる」の反対語は？",a:"上がる",w:["降りる","出る","入る"]},
+{q:"「様子」の読みは？",a:"ようす",w:["もよう","けしき","ありさま"]},
+{q:"「勝つ」の反対語は？",a:"負ける",w:["やめる","逃げる","休む"]},
+{q:"「暑い」の反対語は？",a:"寒い",w:["冷たい","涼しい","ぬるい"]},
+{q:"「明るい」の反対語は？",a:"暗い",w:["重い","遠い","遅い"]},
+{q:"「始まる」の反対語は？",a:"終わる",w:["止まる","待つ","休む"]},
+{q:"「泳ぐ」の読みは？",a:"およぐ",w:["すすむ","とぶ","はしる"]},
+{q:"「集まる」の読みは？",a:"あつまる",w:["かさなる","つながる","まとまる"]},
+{q:"「有名」の読みは？",a:"ゆうめい",w:["ゆうのう","ゆうき","ゆうこう"]},
+{q:"「練習」の読みは？",a:"れんしゅう",w:["けいこ","れんらく","れんぞく"]},
+{q:"「図書館」の読みは？",a:"としょかん",w:["びじゅつかん","はくぶつかん","すいぞくかん"]},
+{q:"「返す」の読みは？",a:"かえす",w:["もどす","おくる","わたす"]},
+{q:"「助ける」の読みは？",a:"たすける",w:["まもる","ふせぐ","すくう"]},
+{q:"「感じる」の読みは？",a:"かんじる",w:["おもう","しる","きく"]},
+{q:"「重い」の反対語は？",a:"軽い",w:["細い","薄い","弱い"]},
+{q:"「広い」の反対語は？",a:"狭い",w:["細い","薄い","浅い"]},
+{q:"「強い」の反対語は？",a:"弱い",w:["軽い","細い","浅い"]},
+{q:"「答える」の読みは？",a:"こたえる",w:["かえる","たずねる","きく"]}
+],
+4:[
+{q:"「不思議」の読みは？",a:"ふしぎ",w:["きみょう","なぞ","しんぴ"]},
+{q:"「熱心」の読みは？",a:"ねっしん",w:["しんけん","まじめ","いっしょうけんめい"]},
+{q:"「共有」の意味は？",a:"みんなで使う",w:["ひとりで使う","借りる","売る"]},
+{q:"「協力」の読みは？",a:"きょうりょく",w:["きょうか","りょくか","こうりょく"]},
+{q:"「必要」の読みは？",a:"ひつよう",w:["ひっす","じゅうよう","ようひ"]},
+{q:"「季節」の読みは？",a:"きせつ",w:["きこう","じき","ころ"]},
+{q:"「説明」の読みは？",a:"せつめい",w:["かいせつ","はなし","もんだい"]},
+{q:"「努力」の読みは？",a:"どりょく",w:["がんりょく","ちから","きんりょく"]},
+{q:"「観察」の読みは？",a:"かんさつ",w:["かんそう","かんが","けんさ"]},
+{q:"「目標」の読みは？",a:"もくひょう",w:["もくてき","ひょうか","さくひん"]},
+{q:"「想像」の読みは？",a:"そうぞう",w:["はつめい","かんがえ","くふう"]},
+{q:"「変化」の読みは？",a:"へんか",w:["かわり","へんかん","いどう"]},
+{q:"「記録」の読みは？",a:"きろく",w:["きねん","めも","ほぞん"]},
+{q:"「成長」の読みは？",a:"せいちょう",w:["そだつ","のびる","かわる"]},
+{q:"「結果」の読みは？",a:"けっか",w:["げんいん","りゆう","もくてき"]},
+{q:"「原因」の読みは？",a:"げんいん",w:["けっか","りゆう","どうき"]},
+{q:"「比べる」の読みは？",a:"くらべる",w:["ならべる","えらぶ","みる"]},
+{q:"「関係」の読みは？",a:"かんけい",w:["つながり","えいきょう","かかわり"]},
+{q:"「判断」の読みは？",a:"はんだん",w:["けってい","えらぶ","きめる"]},
+{q:"「発表」の読みは？",a:"はっぴょう",w:["もうしこむ","つたえる","しらせる"]}
+],
+5:[
+{q:"「敵」の対義語は？",a:"味方",w:["友人","仲間","同士"]},
+{q:"「確認」の読みは？",a:"かくにん",w:["たしかめ","けんしょう","しょうにん"]},
+{q:"「誇り」の読みは？",a:"ほこり",w:["ほまれ","めいよ","じまん"]},
+{q:"「創造」の読みは？",a:"そうぞう",w:["つくる","はつめい","かんがえ"]},
+{q:"「永遠」の読みは？",a:"えいえん",w:["ながい","とわ","ひさしい"]},
+{q:"「批判」の読みは？",a:"ひはん",w:["ひてい","はんたい","ひかく"]},
+{q:"「尊重」の読みは？",a:"そんちょう",w:["たいせつ","けいい","そんけい"]},
+{q:"「複雑」の読みは？",a:"ふくざつ",w:["むずかしい","こみいった","まじった"]},
+{q:"「矛盾」の読みは？",a:"むじゅん",w:["はんたい","くいちがい","つじつま"]},
+{q:"「客観的」の意味は？",a:"自分の感情を交えず見ること",w:["自分の立場で見ること","みんなで見ること","遠くから見ること"]},
+{q:"「主観的」の意味は？",a:"自分の感情や考えで見ること",w:["自分の感情を交えず見ること","みんなで見ること","冷静に見ること"]},
+{q:"「具体的」の意味は？",a:"はっきりとした例や詳細があること",w:["ぼんやりした内容のこと","大まかなこと","むずかしいこと"]},
+{q:"「批評」の読みは？",a:"ひひょう",w:["ひかく","ひはん","ひてい"]},
+{q:"「根拠」の読みは？",a:"こんきょ",w:["りゆう","しょうこ","りくつ"]},
+{q:"「主張」の読みは？",a:"しゅちょう",w:["いけん","もとめる","うったえる"]},
+{q:"「反論」の読みは？",a:"はんろん",w:["はんたい","ひはん","いぎ"]},
+{q:"「縦横」の読みは？",a:"たてよこ",w:["じゅうおう","よこたて","おうじゅう"]},
+{q:"「象徴」の読みは？",a:"しょうちょう",w:["しるし","あらわす","いみ"]},
+{q:"「蒸発」の読みは？",a:"じょうはつ",w:["きえる","とける","かわく"]},
+{q:"「宣言」の読みは？",a:"せんげん",w:["もうしこみ","はっぴょう","とどけ"]}
+],
+6:[
+{q:"「矛盾」の意味は？",a:"つじつまが合わないこと",w:["力強いこと","みんなで決めること","急ぐこと"]},
+{q:"「異口同音」の意味は？",a:"みんなが同じことを言う",w:["口が大きい","音楽が好き","たくさん話す"]},
+{q:"「温故知新」の意味は？",a:"古いことを学んで新しいことを知る",w:["古いものを大切にする","新しいものを作る","昔に戻る"]},
+{q:"「五里霧中」の意味は？",a:"どうすればよいか分からない状態",w:["遠くまで見える","霧の中を歩く","たくさん考える"]},
+{q:"「一石二鳥」の意味は？",a:"一つのことで二つの利益を得る",w:["石を二つ投げる","鳥が二羽いる","一度で全部終わる"]},
+{q:"「起承転結」の「転」の意味は？",a:"話題を変える",w:["話を始める","まとめる","続ける"]},
+{q:"「朝三暮四」の意味は？",a:"うまくごまかして人をだます",w:["朝に三回起きる","よく働く","時間を守る"]},
+{q:"「本末転倒」の意味は？",a:"大切なことと些細なことを取り違える",w:["最初から最後まで","全部ひっくり返す","本を読む"]},
+{q:"「慣用句」とは？",a:"決まった意味を持つ言葉の組み合わせ",w:["新しく作られた言葉","外国から来た言葉","難しい漢字の言葉"]},
+{q:"「敬語」の「尊敬語」はどれ？",a:"いらっしゃる",w:["おります","申します","参ります"]},
+{q:"「接続詞」で逆接を表すのは？",a:"しかし・でも・ところが",w:["そして・また・さらに","なぜなら・だから","つまり・すなわち"]},
+{q:"「体言止め」とは？",a:"名詞や代名詞で文を終わらせる表現",w:["動詞で終わる文","形容詞で終わる文","助詞で終わる文"]},
+{q:"「倒置法」とは？",a:"語順を逆にして印象を強める表現",w:["同じ言葉を繰り返す","たとえを使う","質問の形で表現する"]},
+{q:"「推敲」の読みは？",a:"すいこう",w:["おしはかる","かんがえる","ていせい"]},
+{q:"「含意」の読みは？",a:"がんい",w:["ふくむ","いみ","ないよう"]},
+{q:"「諸行無常」の読みは？",a:"しょぎょうむじょう",w:["もろこうむじょう","しょこうむじょう","もろわざむじょう"]},
+{q:"「漸次」の読みは？",a:"ぜんじ",w:["だんだん","すこしずつ","しだいに"]},
+{q:"「臨機応変」の読みは？",a:"りんきおうへん",w:["りんじたいおう","きへんおうじ","おうへんりんき"]},
+{q:"「文脈」の意味は？",a:"文章の流れや前後のつながり",w:["文の長さ","文字の種類","段落の数"]},
+{q:"「引用」とは？",a:"他の文章や言葉をそのまま使うこと",w:["自分の考えを書くこと","まとめること","例を作ること"]}
+]},
+science:{
+1:[
+{q:"太陽がのぼるのはどっち？",a:"ひがし",w:["きた","にし","みなみ"]},
+{q:"おたまじゃくしが大きくなると？",a:"かえる",w:["さかな","かめ","へび"]},
+{q:"むしのからだはいくつに分かれる？",a:"3つ",w:["2つ","4つ","5つ"]},
+{q:"あめはどこからふってくる？",a:"くも",w:["そら","うみ","やま"]},
+{q:"春になると咲く花は？",a:"さくら",w:["ひまわり","コスモス","あさがお"]},
+{q:"かげはどこにできる？",a:"太陽の反対",w:["太陽の方","まえ","うしろ"]},
+{q:"アサガオは何時ごろ花をさかせる？",a:"朝",w:["昼","夕方","夜"]},
+{q:"モンシロチョウのよう虫は何を食べる？",a:"キャベツの葉",w:["花の蜜","木の実","草"]},
+{q:"かげの長さはいつがいちばん長い？",a:"朝と夕方",w:["昼","正午","明け方"]},
+{q:"土の中にいる生き物は？",a:"ミミズ",w:["カラス","スズメ","カエル"]},
+{q:"チョウの育ち方の順番は？",a:"たまご→よう虫→さなぎ→成虫",w:["たまご→成虫→よう虫→さなぎ","よう虫→たまご→さなぎ→成虫","さなぎ→たまご→よう虫→成虫"]},
+{q:"たんぽぽの種はどうやって広がる？",a:"風でとぶ",w:["川を流れる","動物が運ぶ","土にうまる"]},
+{q:"夏に鳴く虫は？",a:"セミ",w:["コオロギ","スズムシ","カエル"]},
+{q:"秋に鳴く虫は？",a:"コオロギ",w:["セミ","カブトムシ","ホタル"]},
+{q:"植物の花が咲いた後にできるのは？",a:"実",w:["根","葉","茎"]},
+{q:"カブトムシは何を食べる？",a:"木のしる（樹液）",w:["草","石","土"]},
+{q:"カエルは冬に何をする？",a:"冬眠する",w:["南へ渡る","巣を作る","卵を産む"]},
+{q:"空を飛ぶ生き物は？",a:"トンボ",w:["カニ","ドジョウ","ヤドカリ"]},
+{q:"水の中に住む生き物は？",a:"メダカ",w:["リス","ウサギ","ネコ"]},
+{q:"木の葉が落ちるのはいつ？",a:"秋",w:["春","夏","冬"]}
+],
+2:[
+{q:"水が100℃になると？",a:"ふっとうする",w:["こおる","きえる","あたたかくなる"]},
+{q:"じしゃくにくっつくのは？",a:"鉄",w:["金","プラスチック","木"]},
+{q:"電気をとおすのは？",a:"アルミホイル",w:["ゴム","ガラス","プラスチック"]},
+{q:"かげは1日でどう動く？",a:"西から東へ",w:["東から西へ","動かない","ぐるぐる"]},
+{q:"ゴムをのばしてはなすと？",a:"もとにもどる力がうまれる",w:["切れる","大きくなる","かるくなる"]},
+{q:"虫めがねで日光をあつめると？",a:"ものがこげる",w:["ひかる","つめたくなる","くもる"]},
+{q:"植物が育つのに必要なのは？",a:"水・日光・空気",w:["水・火・土","日光・油・石","風・石・砂"]},
+{q:"豆電球に電気が流れると？",a:"光る",w:["溶ける","大きくなる","消える"]},
+{q:"風が強いと風車は？",a:"速く回る",w:["ゆっくり回る","止まる","逆に回る"]},
+{q:"水を冷やし続けると？",a:"氷になる",w:["消える","温かくなる","蒸発する"]},
+{q:"電池の向きを反対にすると？",a:"電流の向きが変わる",w:["明るくなる","消える","変わらない"]},
+{q:"磁石のN極とN極を近づけると？",a:"しりぞけあう",w:["くっつく","溶ける","光る"]},
+{q:"磁石のN極とS極を近づけると？",a:"引き合う",w:["しりぞけあう","溶ける","光る"]},
+{q:"豆電球を直列につなぐと？",a:"暗くなる",w:["明るくなる","変わらない","消える"]},
+{q:"空気は温めると？",a:"上に移動する",w:["下に移動する","消える","重くなる"]},
+{q:"てこで支点から遠い方に力をかけると？",a:"軽い力で持ち上げられる",w:["重くなる","動かない","速く動く"]},
+{q:"水の3つのすがたは？",a:"水・氷・水じょう気",w:["水・塩・空気","氷・雪・霧","水・土・石"]},
+{q:"植物の根のはたらきは？",a:"水をすいあげる",w:["光合成する","種をつくる","花を咲かせる"]},
+{q:"方位磁針のN極が指す方向は？",a:"北",w:["南","東","西"]},
+{q:"水じょう気が冷えると？",a:"水になる",w:["消える","土になる","光る"]}
+],
+3:[
+{q:"太陽の光の色を分けると？",a:"虹の7色",w:["赤と青","白一色","黄と緑"]},
+{q:"ものの重さは場所が変わると？",a:"変わらない",w:["重くなる","軽くなる","0になる"]},
+{q:"空気はあたためられると？",a:"上に移動する",w:["下に移動する","左右に動く","消える"]},
+{q:"植物が光合成でつくるのは？",a:"でんぷん",w:["水","土","酸素だけ"]},
+{q:"太陽が一番高くなるのはいつ？",a:"正午ごろ",w:["朝","夕方","夜"]},
+{q:"電流が流れる向きを変えると？",a:"モーターが逆回転する",w:["速くなる","止まる","光る"]},
+{q:"てこの「支点」とは？",a:"棒が支えられている点",w:["力をかける点","物をのせる点","棒の端"]},
+{q:"昆虫の足は何本？",a:"6本",w:["4本","8本","10本"]},
+{q:"クモは昆虫か？",a:"昆虫ではない（足が8本）",w:["昆虫（足6本）","昆虫（足4本）","昆虫（足10本）"]},
+{q:"雲はなに？",a:"小さな水のつぶの集まり",w:["空気の塊","綿のような物質","水じょう気"]},
+{q:"種が発芽するのに必要なのは？",a:"水・空気・適当な温度",w:["日光・土・肥料","水・火・土","日光・水・空気"]},
+{q:"根から吸い上げた水は葉からどうなる？",a:"蒸散する",w:["光合成に全部使われる","根に戻る","実になる"]},
+{q:"光の3原色は？",a:"赤・緑・青",w:["赤・黄・青","赤・白・黒","赤・橙・黄"]},
+{q:"じしゃくが引きつけるのは？",a:"鉄・コバルト・ニッケル",w:["金・銀・銅","プラスチック・ガラス・木","アルミ・鉛・錫"]},
+{q:"てこの「力点」とは？",a:"力をかける点",w:["棒が支えられている点","物をのせる点","棒の中央"]},
+{q:"てこの「作用点」とは？",a:"物に力が働く点",w:["力をかける点","棒が支えられている点","棒の端"]},
+{q:"川が山から平地に出るところにできる地形は？",a:"扇状地",w:["デルタ（三角州）","リアス海岸","カルスト地形"]},
+{q:"地面がかたむいているとき水は？",a:"低い方に流れる",w:["高い方に流れる","動かない","消える"]},
+{q:"虫の変態で「さなぎ」になるのは？",a:"チョウ",w:["バッタ","トンボ","セミ"]},
+{q:"植物の葉のはたらきは？",a:"光合成",w:["水を吸う","花を咲かせる","種をつくる"]}
+],
+4:[
+{q:"ヒトの血液を全身に送るのは？",a:"心臓",w:["肺","腎臓","肝臓"]},
+{q:"月が地球の周りを1回まわるのに？",a:"約1ヶ月",w:["約1日","約1週間","約1年"]},
+{q:"食塩水を蒸発させると？",a:"食塩が残る",w:["水が残る","何も残らない","砂糖が残る"]},
+{q:"春の星座は？",a:"しし座",w:["オリオン座","さそり座","はくちょう座"]},
+{q:"体の中で食べ物を消化する器官は？",a:"胃・腸",w:["心臓・肺","骨・筋肉","脳・目"]},
+{q:"水が0℃以下になると？",a:"氷になる",w:["蒸発する","消える","温かくなる"]},
+{q:"ヒトの体で呼吸する器官は？",a:"肺",w:["心臓","胃","腸"]},
+{q:"天気が変わる順番は？",a:"西から東へ",w:["東から西へ","南から北へ","北から南へ"]},
+{q:"金属を熱すると？",a:"膨張する",w:["縮む","溶ける","消える"]},
+{q:"ヒトの骨の数は約何本？",a:"206本",w:["100本","300本","500本"]},
+{q:"地震の大きさを表すのは？",a:"マグニチュード",w:["震度","気圧","湿度"]},
+{q:"空気中でいちばん多い気体は？",a:"ちっ素",w:["酸素","二酸化炭素","水じょう気"]},
+{q:"月の満ち欠けの周期は？",a:"約30日",w:["約7日","約15日","約365日"]},
+{q:"流れる水の3つのはたらきは？",a:"侵食・運搬・堆積",w:["蒸発・結晶・溶解","光合成・呼吸・蒸散","発芽・成長・結実"]},
+{q:"夏の大三角形の星は？",a:"ベガ・デネブ・アルタイル",w:["シリウス・リゲル・ベテルギウス","スピカ・アークトゥルス・デネボラ","ポルックス・カストル・プロキオン"]},
+{q:"秋の星座は？",a:"ペガスス座",w:["オリオン座","しし座","さそり座"]},
+{q:"植物の花粉を運ぶ役割をする昆虫は？",a:"ミツバチ",w:["カマキリ","ゴキブリ","カブトムシ"]},
+{q:"ヒトの消化管の順番は？",a:"口→食道→胃→小腸→大腸",w:["口→胃→食道→小腸→大腸","口→小腸→胃→大腸→食道","口→食道→小腸→胃→大腸"]},
+{q:"雨が降った水が川→海→雲→雨に戻るのを？",a:"水の循環",w:["水の変化","水の蒸発","水の移動"]},
+{q:"骨と骨のつなぎ目を何という？",a:"関節",w:["筋肉","腱","靭帯"]}
+],
+5:[
+{q:"物が燃えるために必要なのは？",a:"酸素",w:["二酸化炭素","窒素","水蒸気"]},
+{q:"ふりこの周期を長くするには？",a:"ひもを長くする",w:["おもりを重くする","振れ幅を大きくする","速く振る"]},
+{q:"光合成で植物が吸収するのは？",a:"二酸化炭素",w:["酸素","窒素","水素"]},
+{q:"電磁石を強くするには？",a:"コイルの巻き数を増やす",w:["電池を冷やす","コイルを短くする","磁石を外す"]},
+{q:"食物連鎖で最初に来るのは？",a:"植物（生産者）",w:["肉食動物","草食動物","分解者"]},
+{q:"川の水が海に流れ込むと？",a:"蒸発して雲になり雨に戻る",w:["消える","砂漠になる","氷になる"]},
+{q:"台風の中心に近い風は？",a:"非常に強い",w:["弱い","ない","冷たい"]},
+{q:"花粉を運ぶ役割をする虫は？",a:"ミツバチ",w:["カブトムシ","カマキリ","ゴキブリ"]},
+{q:"受粉とは？",a:"花粉がめしべの先につくこと",w:["花が咲くこと","実がなること","種が飛ぶこと"]},
+{q:"水溶液の性質を調べるのに使うのは？",a:"リトマス紙",w:["温度計","定規","顕微鏡"]},
+{q:"酸性の水溶液はリトマス紙を何色に変える？",a:"青→赤",w:["赤→青","どちらも赤","どちらも青"]},
+{q:"アルカリ性の水溶液はリトマス紙を何色に変える？",a:"赤→青",w:["青→赤","どちらも赤","どちらも青"]},
+{q:"植物の根のはたらきは？",a:"水・肥料を吸収する",w:["光合成をする","実をつくる","花を咲かせる"]},
+{q:"ものが燃えた後に増える気体は？",a:"二酸化炭素",w:["酸素","窒素","水素"]},
+{q:"単子葉植物の葉脈は？",a:"平行脈",w:["網状脈","羽状脈","掌状脈"]},
+{q:"双子葉植物の葉脈は？",a:"網状脈",w:["平行脈","羽状脈","直線脈"]},
+{q:"低気圧では風はどう吹く？",a:"中心に向かって反時計回りに吹き込む",w:["中心から時計回りに吹き出す","まっすぐ吹く","風が吹かない"]},
+{q:"高気圧では天気は？",a:"晴れやすい",w:["雨が降りやすい","曇りやすい","雪が降りやすい"]},
+{q:"てこが水平につり合うのは？",a:"左右の（力×距離）が等しいとき",w:["重さが同じとき","距離が同じとき","支点が中央のとき"]},
+{q:"メダカのオスとメスを見分けるのに使うのは？",a:"背びれ・尻びれの形",w:["体の色","大きさ","目の形"]}
+],
+6:[
+{q:"光合成で植物が吸収するのは？",a:"二酸化炭素",w:["酸素","窒素","水素"]},
+{q:"地球が太陽の周りを1周するのに？",a:"約365日",w:["約30日","約100日","約3650日"]},
+{q:"電流の大きさの単位は？",a:"アンペア(A)",w:["ボルト(V)","ワット(W)","ヘルツ(Hz)"]},
+{q:"火山が噴火すると出てくるのは？",a:"溶岩・火山灰",w:["水・氷","金・銀","空気・雲"]},
+{q:"塩酸に鉄を入れると？",a:"鉄が溶けて水素が発生する",w:["何も起きない","爆発する","鉄が大きくなる"]},
+{q:"月の表面にあるくぼみを何という？",a:"クレーター",w:["カルデラ","デルタ","リアス"]},
+{q:"プレートが動くことで起きるのは？",a:"地震・火山活動",w:["台風・洪水","干ばつ・砂嵐","雷・大雪"]},
+{q:"血液中で酸素を運ぶのは？",a:"赤血球",w:["白血球","血小板","血しょう"]},
+{q:"光合成で作られる酸素はどこから来る？",a:"水",w:["二酸化炭素","空気","肥料"]},
+{q:"地層ができるのは？",a:"土砂が積み重なるから",w:["岩が溶けるから","火が燃えるから","水が固まるから"]},
+{q:"化石とは？",a:"大昔の生き物の痕跡",w:["今の生き物の骨","石の一種","土の固まり"]},
+{q:"太陽系で一番大きな惑星は？",a:"木星",w:["土星","天王星","海王星"]},
+{q:"水溶液を蒸発させても何も残らないのは？",a:"塩酸",w:["食塩水","砂糖水","石灰水"]},
+{q:"地球の自転の周期は？",a:"約24時間",w:["約12時間","約30日","約365日"]},
+{q:"リトマス紙で中性の水溶液は？",a:"どちらも変化しない",w:["青→赤","赤→青","両方青くなる"]},
+{q:"電気分解で陽極に集まるのは？",a:"酸素（水の電気分解の場合）",w:["水素","ちっ素","二酸化炭素"]},
+{q:"人間の遺伝情報を持つのは？",a:"DNA",w:["タンパク質","脂肪","炭水化物"]},
+{q:"てこの原理で支点から遠い方に力をかけると？",a:"小さい力で持ち上げられる",w:["大きな力が必要","変わらない","動かない"]},
+{q:"日本付近にある4つのプレートに含まれないのは？",a:"南極プレート",w:["ユーラシアプレート","太平洋プレート","フィリピン海プレート"]},
+{q:"地球の大気の主成分でないのは？",a:"二酸化炭素（約0.04%）",w:["ちっ素（約78%）","酸素（約21%）","アルゴン（約1%）"]}
+]}
+};
+
+// ── 算数ランダム生成 ──
+function genMathQ(grade){
+  const r=(a,b)=>Math.floor(Math.random()*(b-a+1))+a;
+  const w3=(ans,lo,hi)=>{const s=new Set([ans]);let t=0;while(s.size<4&&t++<50)s.add(r(Math.max(lo,ans-10),Math.min(hi,ans+10)));return shuffle([...s]).filter(x=>x!==ans).slice(0,3);};
+  if(grade===1){const ops=[()=>{const a=r(1,9),b=r(1,9-a);return{q:a+" ＋ "+b+" ＝ ?",a:""+(a+b),w:w3(a+b,1,10)};},()=>{const a=r(2,10),b=r(1,a-1);return{q:a+" － "+b+" ＝ ?",a:""+(a-b),w:w3(a-b,0,9)};}];return ops[r(0,1)]();}
+  if(grade===2){const ops=[()=>{const a=r(10,49),b=r(10,49);return{q:a+" ＋ "+b+" ＝ ?",a:""+(a+b),w:w3(a+b,10,99)};},()=>{const a=r(20,90),b=r(10,a-10);return{q:a+" － "+b+" ＝ ?",a:""+(a-b),w:w3(a-b,1,80)};},()=>{const a=r(2,9),b=r(2,9);return{q:a+" × "+b+" ＝ ?",a:""+(a*b),w:w3(a*b,2,81)};}];return ops[r(0,2)]();}
+  if(grade===3){const ops=[()=>{const a=r(100,499),b=r(100,499);return{q:a+" ＋ "+b+" ＝ ?",a:""+(a+b),w:w3(a+b,100,999)};},()=>{const a=r(200,900),b=r(100,a-100);return{q:a+" － "+b+" ＝ ?",a:""+(a-b),w:w3(a-b,100,800)};},()=>{const b=r(2,9),a=r(2,9);return{q:(a*b)+" ÷ "+b+" ＝ ?",a:""+a,w:w3(a,1,9)};},()=>{const a=r(11,25),b=r(2,4);return{q:a+" × "+b+" ＝ ?",a:""+(a*b),w:w3(a*b,10,100)};}];return ops[r(0,3)]();}
+  if(grade===4){const ops=[()=>{const a=r(12,30),b=r(11,20);return{q:a+" × "+b+" ＝ ?",a:""+(a*b),w:w3(a*b,100,600)};},()=>{const b=r(11,15),a=b*r(2,8);return{q:a+" ÷ "+b+" ＝ ?",a:""+(a/b),w:w3(a/b,1,10)};},()=>{const a=r(1,9),b=r(1,9);return{q:a+"."+b+" × 10 ＝ ?",a:""+(a*10+b),w:w3(a*10+b,10,99)};}];return ops[r(0,2)]();}
+  if(grade===5){const ops=[()=>{const base=r(4,12)*2,h=r(3,10);return{q:"底辺"+base+"cm 高さ"+h+"cm の三角形の面積は？",a:(base*h/2)+"cm²",w:[(base*h)+"cm²",(base*h/4)+"cm²",((base+h)*2)+"cm²"]};},()=>{const w=r(4,12),h=r(3,10);return{q:"縦"+h+"cm 横"+w+"cm の長方形の面積は？",a:(w*h)+"cm²",w:[(w+h)+"cm²",((w+h)*2)+"cm²",(w*h+10)+"cm²"]};},()=>{const n=r(1,8)*10,p=r(1,4)*10;return{q:n+" の "+p+"% は？",a:""+(n*p/100),w:w3(n*p/100,1,n)};}];return ops[r(0,2)]();}
+  if(grade===6){const ops=[()=>{const rad=r(2,8);const area=(rad*rad*3.14).toFixed(2);return{q:"半径"+rad+"cm の円の面積（π≒3.14）は？",a:area+"cm²",w:[(rad*2*3.14).toFixed(2)+"cm²",(rad*rad*3.14*2).toFixed(2)+"cm²",(rad*3.14).toFixed(2)+"cm²"]};},()=>{const a=r(2,5),b=r(2,5),c=r(2,5);return{q:a+":"+b+" ＝ "+(a*c)+":? の?は？",a:""+(b*c),w:w3(b*c,2,25)};},()=>{const x=r(2,5),m=r(2,4),n=r(1,5);return{q:"x＝"+x+" のとき "+m+"x＋"+n+" は？",a:""+(m*x+n),w:w3(m*x+n,5,25)};}];return ops[r(0,2)]();}
+  return null;
+}
+
+function buildQuestions(subjectId, grade){
+  if(subjectId==="math"){
+    const banked=shuffle(BANK.math[grade]||[]).slice(0,2).map(q=>({q:q.q,a:q.a,choices:shuffle([q.a,...shuffle(q.w).slice(0,3)])}));
+    const generated=[];let tries=0;
+    while(generated.length<3&&tries<20){tries++;const g=genMathQ(grade);if(g&&!generated.find(x=>x.q===g.q))generated.push({q:g.q,a:g.a,choices:shuffle([g.a,...g.w])});}
+    return shuffle([...banked,...generated]).slice(0,5);
+  }
+  return shuffle(BANK[subjectId][grade]||[]).slice(0,5).map(q=>({q:q.q,a:q.a,choices:shuffle([q.a,...shuffle(q.w).slice(0,3)])}));
+}
+
+// ── Config ──
+const SUBJECTS=[
+  {id:"math",label:"さんすう・数学",emoji:"🔢",color:"#FF6B6B",light:"#FFF5F5"},
+  {id:"japanese",label:"こくご・国語",emoji:"📖",color:"#4ECDC4",light:"#F0FFFD"},
+  {id:"science",label:"りか・理科",emoji:"🔬",color:"#45B7D1",light:"#F0F8FF"},
+];
+const GRADES=[
+  {grade:1,label:"1年生",emoji:"🌱",color:"#98D8C8"},
+  {grade:2,label:"2年生",emoji:"🌿",color:"#7BC8A4"},
+  {grade:3,label:"3年生",emoji:"🌻",color:"#F6C90E"},
+  {grade:4,label:"4年生",emoji:"⚡",color:"#FF9F43"},
+  {grade:5,label:"5年生",emoji:"🚀",color:"#A29BFE"},
+  {grade:6,label:"6年生",emoji:"👑",color:"#FD79A8"},
+];
+
+// ── State ──
+var S={screen:"grade",grade:null,subject:null,questions:[],qIndex:0,score:0,selected:null,shake:false,scores:{}};
+
+function setState(p){Object.assign(S,p);render();}
+
+// ── Confetti ──
+function showConfetti(){
+  var c=document.getElementById("confetti");c.innerHTML="";
+  var cols=["#FF6B6B","#4ECDC4","#FFE66D","#A29BFE","#FD79A8","#55EFC4"];
+  for(var i=0;i<30;i++){
+    var d=document.createElement("div");var sz=8+Math.random()*8;
+    d.style.cssText="position:absolute;top:-20px;width:"+sz+"px;height:"+sz+"px;background:"+cols[i%6]+";left:"+(Math.random()*100)+"%;border-radius:"+(Math.random()>.5?"50%":"2px")+";animation:fall 1.3s "+(Math.random()*.5)+"s ease-in forwards;";
+    c.appendChild(d);
+  }
+  setTimeout(function(){c.innerHTML="";},2000);
+}
+
+// ── Render ──
+function h(tag,attrs,children){
+  var e=document.createElement(tag);
+  if(attrs)Object.keys(attrs).forEach(function(k){
+    if(k==="class")e.className=attrs[k];
+    else if(k==="style")e.style.cssText=attrs[k];
+    else if(k==="onclick")e.onclick=attrs[k];
+    else e.setAttribute(k,attrs[k]);
+  });
+  if(children)children.forEach(function(c){
+    if(c==null)return;
+    if(typeof c==="string")e.appendChild(document.createTextNode(c));
+    else e.appendChild(c);
+  });
+  return e;
+}
+function d(style,children){return h("div",{style:style},children);}
+
+function render(){
+  var app=document.getElementById("app");
+  app.innerHTML="";
+  if(S.screen==="grade")app.appendChild(renderGrade());
+  else if(S.screen==="home")app.appendChild(renderHome());
+  else if(S.screen==="quiz")app.appendChild(renderQuiz());
+  else if(S.screen==="result")app.appendChild(renderResult());
+}
+
+function renderGrade(){
+  var wrap=d("min-height:100vh;background:linear-gradient(135deg,#1a1a2e,#16213e,#0f3460);display:flex;flex-direction:column;align-items:center;padding:36px 20px;",[
+    d("text-align:center;margin-bottom:32px;",[
+      d("font-size:60px;margin-bottom:10px;",["🎓"]),
+      h("h1",{style:"color:white;font-size:32px;font-weight:900;letter-spacing:2px;"},["まなびランド"]),
+      d("color:rgba(255,255,255,.7);font-size:15px;margin-top:8px;font-weight:700;",["なんねんせい？"])
+    ])
+  ]);
+  var grid=d("display:grid;grid-template-columns:1fr 1fr;gap:14px;width:100%;max-width:380px;",null);
+  GRADES.forEach(function(g,i){
+    var card=h("button",{
+      class:"hcard",
+      style:"background:rgba(255,255,255,.08);border:2px solid "+g.color+"66;border-radius:20px;padding:22px 16px;text-align:center;box-shadow:0 4px 20px "+g.color+"22;animation:slideUp .4s "+(i*.07)+"s both;width:100%;",
+      onclick:function(){setState({grade:g.grade,screen:"home"});}
+    },[
+      d("font-size:36px;margin-bottom:6px;",[g.emoji]),
+      d("color:white;font-size:18px;font-weight:900;",[g.label]),
+      d("margin-top:8px;",[h("span",{style:"display:inline-block;background:"+g.color+";color:#111;border-radius:99px;padding:3px 12px;font-size:11px;font-weight:700;"},["スタート！"])])
+    ]);
+    grid.appendChild(card);
+  });
+  wrap.appendChild(grid);
+  return wrap;
+}
+
+function renderHome(){
+  var gi=GRADES.find(function(g){return g.grade===S.grade;});
+  var wrap=d("min-height:100vh;background:linear-gradient(135deg,#667eea,#764ba2,#f093fb);display:flex;flex-direction:column;align-items:center;padding:36px 20px;",[
+    d("text-align:center;margin-bottom:20px;",[d("font-size:52px;",["🌟"]),h("h1",{style:"color:white;font-size:30px;font-weight:900;letter-spacing:2px;"},["まなびランド"])]),
+    h("button",{class:"hbtn",style:"background:rgba(255,255,255,.2);border:2px solid rgba(255,255,255,.4);border-radius:99px;padding:8px 20px;color:white;font-size:15px;font-weight:900;margin-bottom:28px;",onclick:function(){setState({screen:"grade"});}},[ gi.emoji+" "+gi.label+" ▾ かえる"])
+  ]);
+  var list=d("display:flex;flex-direction:column;gap:14px;width:100%;max-width:360px;",null);
+  SUBJECTS.forEach(function(s,i){
+    var best=S.scores[S.grade+"-"+s.id];
+    var card=h("button",{
+      class:"hcard",
+      style:"background:white;border-radius:20px;padding:18px 20px;display:flex;align-items:center;gap:14px;box-shadow:0 8px 24px rgba(0,0,0,.12);animation:slideUp .45s "+(i*.1)+"s both;width:100%;text-align:left;",
+      onclick:function(){startQuiz(s.id);}
+    },[
+      d("width:56px;height:56px;border-radius:14px;background:"+s.light+";display:flex;align-items:center;justify-content:center;font-size:30px;flex-shrink:0;border:3px solid "+s.color+"33;",[s.emoji]),
+      d("text-align:left;flex:1;min-width:0;",[
+        d("font-size:18px;font-weight:900;color:#222;",[s.label]),
+        d("font-size:12px;color:#999;margin-top:2px;",[best!=null?"さいこうてん: "+best+"/5もん":"まだチャレンジしていないよ"])
+      ]),
+      h("span",{style:"background:"+s.color+";color:white;border-radius:10px;padding:7px 12px;font-size:12px;font-weight:700;flex-shrink:0;"},["スタート →"])
+    ]);
+    list.appendChild(card);
+  });
+  wrap.appendChild(list);
+  wrap.appendChild(d("margin-top:24px;background:rgba(255,255,255,.15);border-radius:14px;padding:12px 20px;color:white;font-size:13px;max-width:360px;text-align:center;",["💡 各かもく20問以上！さんすうは毎回ちがう数字！"]));
+  return wrap;
+}
+
+function startQuiz(subjectId){
+  var qs=buildQuestions(subjectId,S.grade);
+  setState({screen:"quiz",subject:subjectId,questions:qs,qIndex:0,score:0,selected:null,shake:false});
+}
+
+function handleAnswer(choice){
+  if(S.selected!==null)return;
+  var q=S.questions[S.qIndex];
+  var correct=choice===q.a;
+  var newScore=correct?S.score+1:S.score;
+  if(correct)showConfetti();
+  setState({selected:choice,shake:!correct});
+  if(!correct)setTimeout(function(){setState({shake:false});},450);
+  setTimeout(function(){
+    if(S.qIndex+1>=S.questions.length){
+      var key=S.grade+"-"+S.subject;
+      var scores=Object.assign({},S.scores);
+      scores[key]=Math.max(newScore,scores[key]||0);
+      setState({screen:"result",scores:scores,lastScore:{score:newScore,total:S.questions.length}});
+    }else{
+      setState({qIndex:S.qIndex+1,score:newScore,selected:null,shake:false});
+    }
+  },1050);
+}
+
+function renderQuiz(){
+  var subj=SUBJECTS.find(function(s){return s.id===S.subject;});
+  var gi=GRADES.find(function(g){return g.grade===S.grade;});
+  var q=S.questions[S.qIndex];
+  var prog=(S.qIndex/S.questions.length)*100;
+
+  var wrap=d("min-height:100vh;background:"+subj.light+";display:flex;flex-direction:column;padding:20px;max-width:480px;margin:0 auto;",null);
+
+  // topbar
+  var tb=d("display:flex;align-items:center;gap:10px;margin-bottom:16px;",[
+    h("button",{style:"background:white;border:none;border-radius:10px;padding:7px 12px;font-size:18px;",onclick:function(){setState({screen:"home"});}},["←"]),
+    d("flex:1;",[
+      d("display:flex;justify-content:space-between;margin-bottom:5px;font-size:12px;font-weight:700;color:#666;",[gi.emoji+gi.label+" "+subj.emoji+subj.label, (S.qIndex+1)+" / "+S.questions.length]),
+      d("background:#e0e0e0;border-radius:99px;height:9px;overflow:hidden;",[
+        d("width:"+prog+"%;height:100%;background:linear-gradient(90deg,"+subj.color+","+subj.color+"bb);border-radius:99px;transition:width .4s;",null)
+      ])
+    ])
+  ]);
+  wrap.appendChild(tb);
+  wrap.appendChild(d("text-align:right;font-size:13px;font-weight:700;color:"+subj.color+";margin-bottom:12px;",["⭐ "+S.score+"てん"]));
+
+  var qcard=d("background:white;border-radius:22px;padding:28px 20px;box-shadow:0 8px 28px "+subj.color+"30;text-align:center;margin-bottom:20px;border:3px solid "+subj.color+"22;",[
+    d("font-size:36px;margin-bottom:10px;",[subj.emoji]),
+    d("font-size:19px;font-weight:900;color:#222;line-height:1.6;",[q.q])
+  ]);
+  qcard.className=S.shake?"shake":"pop";
+  wrap.appendChild(qcard);
+
+  var grid=d("display:grid;grid-template-columns:1fr 1fr;gap:10px;",null);
+  q.choices.forEach(function(choice,i){
+    var bg="white",border="3px solid "+subj.color+"44",color="#333";
+    if(S.selected!==null){
+      if(choice===q.a){bg="#4ECDC4";color="white";border="3px solid #4ECDC4";}
+      else if(S.selected===choice){bg="#FF6B6B";color="white";border="3px solid #FF6B6B";}
+    }
+    var prefix=S.selected===choice&&choice===q.a?"✅ ":S.selected===choice?"❌ ":"";
+    var btn=h("button",{
+      class:"hbtn",
+      style:"background:"+bg+";border:"+border+";border-radius:14px;padding:16px 10px;font-size:16px;font-weight:700;color:"+color+";box-shadow:0 3px 10px rgba(0,0,0,.07);width:100%;animation:pop .32s "+(i*.06)+"s both;",
+      onclick:S.selected!==null?null:function(c){return function(){handleAnswer(c);};}(choice)
+    },[prefix+choice]);
+    if(S.selected!==null)btn.disabled=true;
+    grid.appendChild(btn);
+  });
+  wrap.appendChild(grid);
+
+  if(S.selected!==null){
+    var correct=S.selected===q.a;
+    var msg=d("margin-top:18px;text-align:center;font-size:19px;font-weight:900;color:"+(correct?"#4ECDC4":"#FF6B6B")+";",[
+      correct?"🎉 せいかい！":"😢 ざんねん！こたえは「"+q.a+"」"
+    ]);
+    msg.className="pop";
+    wrap.appendChild(msg);
+  }
+  return wrap;
+}
+
+function renderResult(){
+  var subj=SUBJECTS.find(function(s){return s.id===S.subject;});
+  var gi=GRADES.find(function(g){return g.grade===S.grade;});
+  var sc=S.lastScore||{score:0,total:5};
+  var pct=sc.score/sc.total;
+  var stars=pct>=.9?3:pct>=.6?2:1;
+  var icon=pct>=.9?"🏆":pct>=.6?"🎊":"💪";
+  var msg=pct>=.9?"かんぺき！すごい！":pct>=.6?"よくできました！":"もういちどがんばろう！";
+  if(pct>=.6)showConfetti();
+
+  var starsEl=d("font-size:44px;letter-spacing:4px;margin-top:10px;",null);
+  [1,2,3].forEach(function(s){
+    starsEl.appendChild(h("span",{style:"filter:"+(s<=stars?"none":"grayscale(1) opacity(.3)")},["⭐"]));
+  });
+
+  var scoreNum=d("font-size:54px;font-weight:900;color:#667eea;line-height:1;",null);
+  scoreNum.appendChild(document.createTextNode(sc.score));
+  scoreNum.appendChild(h("span",{style:"font-size:26px;color:#bbb;"},[ "/"+sc.total]));
+
+  var card=d("background:white;border-radius:28px;padding:44px 32px;max-width:380px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.25);",[
+    d("font-size:60px;margin-bottom:6px;",[icon]),
+    h("h2",{style:"font-size:26px;font-weight:900;color:#333;margin-bottom:6px;"},[msg]),
+    d("font-size:14px;color:#888;margin-bottom:18px;",[gi.emoji+gi.label+"｜"+subj.emoji+subj.label]),
+    d("background:#f8f8ff;border-radius:18px;padding:20px;margin-bottom:18px;",[
+      scoreNum,
+      d("font-size:13px;color:#aaa;margin-top:2px;",["もんせいかい"]),
+      starsEl
+    ]),
+    d("display:flex;flex-direction:column;gap:10px;",[
+      h("button",{class:"hbtn",style:"background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:14px;padding:15px;font-size:16px;font-weight:900;box-shadow:0 6px 18px rgba(102,126,234,.4);width:100%;",onclick:function(){startQuiz(S.subject);}},["🔄 もういちどチャレンジ！"]),
+      h("button",{class:"hbtn",style:"background:#f0f0f0;color:#555;border-radius:14px;padding:15px;font-size:16px;font-weight:700;width:100%;",onclick:function(){setState({screen:"home"});}},["🏠 もどる"])
+    ])
+  ]);
+  card.className="pop";
+
+  return d("min-height:100vh;background:linear-gradient(135deg,#667eea,#764ba2);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:36px 20px;",[card]);
+}
+
+render();
+</script>
+</body>
+</html>
