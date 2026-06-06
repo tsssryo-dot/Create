@@ -406,7 +406,7 @@ const GRADES=[
 ];
 
 // ── State ──
-var S={screen:"grade",grade:null,subject:null,questions:[],qIndex:0,score:0,selected:null,shake:false,scores:{}};
+var S={screen:"grade",grade:null,subject:null,questions:[],qIndex:0,score:0,selected:null,shake:false,scores:{},explanation:null,loadingExp:false,pendingScore:0};
 
 function setState(p){Object.assign(S,p);render();}
 
@@ -439,6 +439,41 @@ function h(tag,attrs,children){
   return e;
 }
 function d(style,children){return h("div",{style:style},children);}
+
+// ── 次の問題へ ──
+function nextQuestion(){
+  var newScore=S.pendingScore;
+  if(S.qIndex+1>=S.questions.length){
+    var key=S.grade+"-"+S.subject;
+    var scores=Object.assign({},S.scores);
+    scores[key]=Math.max(newScore,scores[key]||0);
+    setState({screen:"result",scores:scores,lastScore:{score:newScore,total:S.questions.length}});
+  }else{
+    setState({qIndex:S.qIndex+1,score:newScore,selected:null,shake:false,explanation:null,loadingExp:false,pendingScore:0});
+  }
+}
+
+// ── AI解説生成 ──
+async function fetchExplanation(question, correctAnswer, wrongAnswer){
+  setState({loadingExp:true, explanation:null});
+  try {
+    var res=await fetch("https://api.anthropic.com/v1/messages",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+      body:JSON.stringify({
+        model:"claude-sonnet-4-20250514",
+        max_tokens:300,
+        messages:[{role:"user",content:"小学生向けに以下の問題の解説を3文以内で簡単に説明してください。\n問題: "+question+"\n正解: "+correctAnswer+"\n間違えた答え: "+wrongAnswer+"\n\n子供にわかりやすく、なぜ正解なのかを説明してください。敬語不要、ですます調でOK。"}]
+      })
+    });
+    if(!res.ok)throw new Error("API "+res.status);
+    var data=await res.json();
+    var txt=data.content.filter(function(b){return b.type==="text";}).map(function(b){return b.text;}).join("").trim();
+    setState({explanation:txt, loadingExp:false});
+  } catch(e) {
+    setState({explanation:"解説を取得できませんでした。", loadingExp:false});
+  }
+}
 
 function render(){
   var app=document.getElementById("app");
@@ -512,19 +547,26 @@ function handleAnswer(choice){
   var q=S.questions[S.qIndex];
   var correct=choice===q.a;
   var newScore=correct?S.score+1:S.score;
-  if(correct)showConfetti();
-  setState({selected:choice,shake:!correct});
-  if(!correct)setTimeout(function(){setState({shake:false});},450);
-  setTimeout(function(){
-    if(S.qIndex+1>=S.questions.length){
-      var key=S.grade+"-"+S.subject;
-      var scores=Object.assign({},S.scores);
-      scores[key]=Math.max(newScore,scores[key]||0);
-      setState({screen:"result",scores:scores,lastScore:{score:newScore,total:S.questions.length}});
-    }else{
-      setState({qIndex:S.qIndex+1,score:newScore,selected:null,shake:false});
-    }
-  },1050);
+  if(correct){
+    showConfetti();
+    setState({selected:choice,shake:false,explanation:null,loadingExp:false});
+    // 正解は1秒後に自動で次へ
+    setTimeout(function(){
+      if(S.qIndex+1>=S.questions.length){
+        var key=S.grade+"-"+S.subject;
+        var scores=Object.assign({},S.scores);
+        scores[key]=Math.max(newScore,scores[key]||0);
+        setState({screen:"result",scores:scores,lastScore:{score:newScore,total:S.questions.length}});
+      }else{
+        setState({qIndex:S.qIndex+1,score:newScore,selected:null,shake:false,explanation:null,loadingExp:false});
+      }
+    },1050);
+  } else {
+    setState({selected:choice,shake:true,explanation:null,pendingScore:newScore});
+    setTimeout(function(){setState({shake:false});},450);
+    // AI解説を非同期で取得（不正解は手動で次へ）
+    fetchExplanation(q.q, q.a, choice);
+  }
 }
 
 function renderQuiz(){
@@ -580,6 +622,32 @@ function renderQuiz(){
     ]);
     msg.className="pop";
     wrap.appendChild(msg);
+    // 不正解のとき解説＋次へボタンを表示
+    if(!correct){
+      if(S.loadingExp){
+        var expBox=d("margin-top:12px;background:white;border-radius:16px;padding:16px 18px;box-shadow:0 4px 16px rgba(0,0,0,.08);text-align:center;",[
+          d("font-size:14px;color:#888;",["✨ AIが解説を考えています…"]),
+          h("button",{class:"hbtn",style:"margin-top:14px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:12px;padding:12px 24px;font-size:15px;font-weight:900;width:100%;",onclick:function(){nextQuestion();}},["つぎの もんだいへ →"])
+        ]);
+        expBox.className="pop";
+        wrap.appendChild(expBox);
+      } else if(S.explanation){
+        var expBox=d("margin-top:12px;background:white;border-radius:16px;padding:16px 18px;box-shadow:0 4px 16px rgba(0,0,0,.08);",[
+          d("font-size:13px;font-weight:700;color:#764ba2;margin-bottom:6px;",["💡 解説"]),
+          d("font-size:14px;color:#444;line-height:1.7;margin-bottom:14px;",[S.explanation]),
+          h("button",{class:"hbtn",style:"background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:12px;padding:12px 24px;font-size:15px;font-weight:900;width:100%;",onclick:function(){nextQuestion();}},["つぎの もんだいへ →"])
+        ]);
+        expBox.className="pop";
+        wrap.appendChild(expBox);
+      } else {
+        // selectedがあるがまだloadingでもexplanationでもない（初期）
+        var expBox=d("margin-top:12px;background:white;border-radius:16px;padding:16px 18px;box-shadow:0 4px 16px rgba(0,0,0,.08);text-align:center;",[
+          h("button",{class:"hbtn",style:"background:linear-gradient(135deg,#667eea,#764ba2);color:white;border-radius:12px;padding:12px 24px;font-size:15px;font-weight:900;width:100%;",onclick:function(){nextQuestion();}},["つぎの もんだいへ →"])
+        ]);
+        expBox.className="pop";
+        wrap.appendChild(expBox);
+      }
+    }
   }
   return wrap;
 }
