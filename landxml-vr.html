@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>LandXML VRビューア</title>
+<style>
+  :root{--bg:#1b1e23;--panel:rgba(24,27,32,.92);--fg:#e8eaed;--sub:#9aa0a6;--acc:#4da3ff;--line:#3a3f47}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:system-ui,"Hiragino Sans","Yu Gothic UI",sans-serif;font-size:14px;overflow:hidden}
+  #view{position:fixed;inset:0}
+  #panel{position:fixed;top:10px;left:10px;width:300px;max-height:calc(100% - 20px);overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;z-index:5}
+  #panel.closed{width:auto;max-height:none}
+  #panel.closed .body{display:none}
+  h1{font-size:15px;margin:0 0 8px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+  h2{font-size:12px;color:var(--sub);margin:14px 0 6px;font-weight:600}
+  button,.btn{background:#2b3038;color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:7px 10px;font-size:13px;cursor:pointer}
+  button:hover,.btn:hover{border-color:var(--acc)}
+  button.on{background:var(--acc);border-color:var(--acc);color:#fff}
+  .row{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:4px 0}
+  .row label{flex:1}
+  input[type=range]{width:100%}
+  .grp{border-top:1px solid var(--line);padding:6px 0}
+  .grp>summary{cursor:pointer;font-weight:600;list-style:none;display:flex;gap:6px;align-items:center}
+  .item{display:flex;align-items:center;gap:6px;padding:2px 0 2px 18px;font-size:13px}
+  .item span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .item input[type=color]{width:22px;height:18px;border:none;padding:0;background:none}
+  #info{position:fixed;bottom:10px;left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 12px;font-size:13px;z-index:5;white-space:nowrap;max-width:calc(100% - 20px);overflow:hidden;text-overflow:ellipsis}
+  #drop{position:fixed;inset:0;background:rgba(77,163,255,.18);border:3px dashed var(--acc);display:none;align-items:center;justify-content:center;font-size:20px;z-index:10}
+  .hint{color:var(--sub);font-size:12px;line-height:1.5}
+  #vrbox button{width:100%;margin-top:6px}
+  @media (max-width:600px){#panel{width:calc(100% - 20px)}}
+</style>
+</head>
+<body>
+<div id="view"></div>
+<div id="panel">
+  <h1><span>LandXML VRビューア</span><button id="toggle" title="パネル開閉">≡</button></h1>
+  <div class="body">
+    <div class="row">
+      <label class="btn" style="text-align:center">LandXMLを開く<input id="file" type="file" accept=".xml,.landxml" multiple hidden></label>
+      <button id="sample">A2現場</button>
+    </div>
+    <div class="hint">ファイルを画面にドラッグしても開けます（複数可：現況＋設計など）</div>
+
+    <h2>表示</h2>
+    <div class="row"><label>高さ強調 <b id="exv">1.0</b>倍<input id="ex" type="range" min="1" max="5" step="0.5" value="1"></label></div>
+    <div class="row">
+      <button id="fit">全体表示</button>
+      <button id="wire">ワイヤー</button>
+      <button id="pick">座標を読む</button>
+    </div>
+
+    <h2>VR</h2>
+    <div class="row">
+      <button id="mLife" class="on">等身大（現場に立つ）</button>
+      <button id="mMini">ミニチュア（卓上）</button>
+    </div>
+    <div class="hint">等身大：画面をダブルクリックした場所がVRの立ち位置になります。<br>VR中の操作：左スティック＝移動／右スティック左右＝向き・上下＝高さ</div>
+    <div id="vrbox"></div>
+
+    <h2>レイヤ</h2>
+    <div id="layers" class="hint">まだ読み込まれていません</div>
+  </div>
+</div>
+<div id="info">LandXMLを読み込んでください</div>
+<div id="drop">ここにドロップ</div>
+
+<script type="importmap">
+{"imports":{
+  "three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { VRButton } from 'three/addons/webxr/VRButton.js';
+
+const $ = id => document.getElementById(id);
+const info = t => $('info').textContent = t;
+
+// ---------- シーン ----------
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.xr.enabled = true;
+$('view').appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xbcd4e6);
+scene.fog = new THREE.Fog(0xbcd4e6, 400, 2500);
+const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.05, 5000);
+camera.position.set(80, 60, 80);
+
+// VRではカメラを dolly に入れて移動させる
+const dolly = new THREE.Group();
+scene.add(dolly);
+dolly.add(camera);
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0x6b5a45, 1.6));
+const sun = new THREE.DirectionalLight(0xffffff, 1.6);
+sun.position.set(-120, 200, 80);
+scene.add(sun);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+
+const world = new THREE.Group();   // 高さ強調・ミニチュア縮尺をここで掛ける
+scene.add(world);
+const model = new THREE.Group();   // 原点移動済みのモデル
+world.add(model);
+
+const marker = new THREE.Mesh(new THREE.ConeGeometry(0.6, 2, 16), new THREE.MeshBasicMaterial({ color: 0xff3b30 }));
+marker.rotation.x = Math.PI; marker.visible = false;
+model.add(marker);
+
+let grid = null;
+let origin = null;         // {x: 北(X), y: 東(Y), z: 標高}
+let startPoint = null;     // VR立ち位置（モデル座標）
+let vrMode = 'life';
+let wire = false, pickMode = false;
+const layers = [];         // {name, group, mesh, color, opacity}
+
+$('vrbox').appendChild(VRButton.createButton(renderer));
+
+// ---------- 色分け ----------
+function styleFor(name, box) {
+  const s = new THREE.Vector3(); box.getSize(s);
+  if (/車道|舗装|道路|路面|歩道/.test(name)) return ['#6e7279', 1];
+  if (/法面|盛土|切土|法/.test(name)) return ['#86b25f', 1];
+  if (/現況|地盤|地形|原地/.test(name)) return ['#b59a6d', 1];
+  if (/^Y\d+$|矢板|土留|締切/.test(name)) return ['#5b8fc9', 0.45];
+  if (/杭/.test(name) || (Math.max(s.x, s.z) < 3.5 && s.y > 8)) return ['#c98b4a', 1]; // 細長い＝杭
+  if (/躯体|フーチング|基礎|翼|ハンチ|壁|床版/.test(name)) return ['#cfcac0', 1];
+  return ['#d8d2c4', 1];
+}
+
+// ---------- LandXML 解析 ----------
+function parseLandXML(text, fileName) {
+  const doc = new DOMParser().parseFromString(text, 'application/xml');
+  if (doc.querySelector('parsererror')) throw new Error('XMLとして読めません');
+  const out = [];
+  const groups = [...doc.getElementsByTagName('Surfaces')];
+  for (const g of groups) {
+    const gname = g.getAttribute('name') || fileName;
+    for (const s of g.getElementsByTagName('Surface')) {
+      const pts = new Map();
+      for (const p of s.getElementsByTagName('P')) {
+        const v = p.textContent.trim().split(/\s+/).map(Number);
+        pts.set(p.getAttribute('id'), v); // LandXML: 北(X) 東(Y) 標高
+      }
+      const faces = [];
+      for (const f of s.getElementsByTagName('F')) {
+        if (f.getAttribute('i') === '1') continue; // 非表示面
+        const ids = f.textContent.trim().split(/\s+/);
+        if (ids.length >= 3) faces.push(ids);
+      }
+      if (faces.length) out.push({ group: `${gname}`, file: fileName, name: s.getAttribute('name') || 'Surface', pts, faces });
+    }
+  }
+  return out;
+}
+
+function buildMesh(surf) {
+  const pos = [];
+  for (const [a, b, c] of surf.faces) {
+    for (const id of [a, b, c]) {
+      const p = surf.pts.get(id);
+      if (!p) { pos.length -= (pos.length % 9); break; }
+      // three: x=東, y=標高, z=-北
+      pos.push(p[1] - origin.y, p[2] - origin.z, -(p[0] - origin.x));
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.computeVertexNormals();
+  geo.computeBoundingBox();
+  const [color, opacity] = styleFor(surf.name, geo.boundingBox);
+  const mat = new THREE.MeshStandardMaterial({
+    color, side: THREE.DoubleSide, flatShading: true, roughness: .9, metalness: 0,
+    transparent: opacity < 1, opacity, depthWrite: opacity >= 1, wireframe: wire
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.name = surf.name;
+  return mesh;
+}
+
+async function loadTexts(list) {
+  let surfs = [];
+  for (const { text, name } of list) {
+    try { surfs = surfs.concat(parseLandXML(text, name)); }
+    catch (e) { alert(`${name}: ${e.message}`); }
+  }
+  if (!surfs.length) { info('TIN面（Surface）が見つかりませんでした'); return; }
+  if (!origin) {
+    // 最初のファイルの範囲中心を原点にする（平面直角座標のままだと桁が大きすぎるため）
+    let mn = [Infinity, Infinity, Infinity], mx = [-Infinity, -Infinity, -Infinity];
+    for (const s of surfs) for (const p of s.pts.values()) for (let i = 0; i < 3; i++) { mn[i] = Math.min(mn[i], p[i]); mx[i] = Math.max(mx[i], p[i]); }
+    origin = { x: (mn[0] + mx[0]) / 2, y: (mn[1] + mx[1]) / 2, z: mn[2] };
+  }
+  for (const s of surfs) {
+    const mesh = buildMesh(s);
+    model.add(mesh);
+    layers.push({ group: s.group, name: s.name, mesh });
+  }
+  renderLayers();
+  makeGrid();
+  if (!startPoint) defaultStart();
+  applyWorld();
+  fit();
+  const tri = layers.reduce((n, l) => n + l.mesh.geometry.attributes.position.count / 3, 0);
+  info(`${layers.length}面・${tri.toLocaleString()}三角形　｜　ドラッグ：回転　右ドラッグ：移動　ホイール：拡大`);
+}
+
+function makeGrid() {
+  if (grid) model.remove(grid);
+  const box = new THREE.Box3().setFromObject(model);
+  const size = Math.ceil(Math.max(box.max.x - box.min.x, box.max.z - box.min.z) / 10 + 4) * 10;
+  grid = new THREE.GridHelper(size, size / 10, 0x667080, 0x8a93a0);
+  grid.position.set((box.min.x + box.max.x) / 2, box.min.y - 0.01, (box.min.z + box.max.z) / 2);
+  grid.material.transparent = true; grid.material.opacity = .45;
+  model.add(grid);
+}
+
+// 立ち位置の初期値：道路面の中央付近、無ければ最も高い所
+function defaultStart() {
+  const road = layers.find(l => /車道|舗装|道路/.test(l.name)) || layers[0];
+  const b = road.mesh.geometry.boundingBox;
+  const c = new THREE.Vector3((b.min.x + b.max.x) / 2, b.max.y + 50, (b.min.z + b.max.z) / 2);
+  const hit = new THREE.Raycaster(c, new THREE.Vector3(0, -1, 0)).intersectObject(road.mesh)[0];
+  setStart(hit ? hit.point : new THREE.Vector3(c.x, b.max.y, c.z));
+}
+function setStart(p) {
+  startPoint = p.clone();
+  marker.position.copy(p).add(new THREE.Vector3(0, 1.2, 0));
+  marker.visible = vrMode === 'life';
+}
+
+// ---------- レイヤパネル ----------
+function renderLayers() {
+  const box = $('layers'); box.innerHTML = ''; box.classList.remove('hint');
+  const groups = {};
+  layers.forEach(l => (groups[l.group] ??= []).push(l));
+  for (const [g, ls] of Object.entries(groups)) {
+    const d = document.createElement('details'); d.className = 'grp'; d.open = ls.length <= 15;
+    const sm = document.createElement('summary');
+    const gc = document.createElement('input'); gc.type = 'checkbox'; gc.checked = true;
+    gc.onclick = e => { e.stopPropagation(); ls.forEach(l => { l.mesh.visible = gc.checked; l.cb.checked = gc.checked; }); };
+    sm.append(gc, `${g}（${ls.length}）`);
+    d.append(sm);
+    for (const l of ls) {
+      const row = document.createElement('div'); row.className = 'item';
+      const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = l.mesh.visible;
+      cb.onchange = () => l.mesh.visible = cb.checked; l.cb = cb;
+      const col = document.createElement('input'); col.type = 'color'; col.value = '#' + l.mesh.material.color.getHexString();
+      col.oninput = () => l.mesh.material.color.set(col.value);
+      const nm = document.createElement('span'); nm.textContent = l.name; nm.title = l.name;
+      const op = document.createElement('input'); op.type = 'range'; op.min = .1; op.max = 1; op.step = .05; op.value = l.mesh.material.opacity; op.style.width = '56px'; op.title = '透明度';
+      op.oninput = () => { const m = l.mesh.material; m.opacity = +op.value; m.transparent = m.opacity < 1; m.depthWrite = m.opacity >= 1; m.needsUpdate = true; };
+      row.append(cb, col, nm, op); d.append(row);
+    }
+    box.append(d);
+  }
+}
+
+// ---------- 表示操作 ----------
+function exaggeration() { return +$('ex').value; }
+function applyWorld(inVR = renderer.xr.isPresenting) {
+  const ex = exaggeration();
+  if (vrMode === 'mini' && inVR) {
+    world.scale.set(1, 1, 1); world.position.set(0, 0, 0); world.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(model);
+    const span = Math.max(box.max.x - box.min.x, box.max.z - box.min.z) || 1;
+    const s = 1.2 / span; // 約1.2m四方に収める
+    world.scale.set(s, s * ex, s);
+    const cx = (box.min.x + box.max.x) / 2, cz = (box.min.z + box.max.z) / 2;
+    world.position.set(-cx * s, 0.8 - box.min.y * s * ex, -cz * s - 1.0);
+  } else {
+    world.scale.set(1, ex, 1);
+    world.position.set(0, 0, 0);
+  }
+}
+function fit() {
+  const box = new THREE.Box3().setFromObject(world);
+  if (box.isEmpty()) return;
+  const c = box.getCenter(new THREE.Vector3()), r = box.getSize(new THREE.Vector3()).length() / 2;
+  controls.target.copy(c);
+  camera.position.copy(c).add(new THREE.Vector3(r * .7, r * .6, r * .8));
+  camera.near = Math.max(r / 2000, 0.05); camera.far = r * 30; camera.updateProjectionMatrix();
+  scene.fog.near = r * 3; scene.fog.far = r * 15;
+  controls.update();
+}
+
+$('ex').oninput = () => { $('exv').textContent = (+$('ex').value).toFixed(1); applyWorld(); };
+$('fit').onclick = fit;
+$('wire').onclick = () => { wire = !wire; $('wire').classList.toggle('on', wire); layers.forEach(l => l.mesh.material.wireframe = wire); };
+$('pick').onclick = () => { pickMode = !pickMode; $('pick').classList.toggle('on', pickMode); info(pickMode ? 'クリックした点の座標を表示します' : '座標読み取りを終了'); };
+$('mLife').onclick = () => { vrMode = 'life'; $('mLife').classList.add('on'); $('mMini').classList.remove('on'); marker.visible = !!startPoint; };
+$('mMini').onclick = () => { vrMode = 'mini'; $('mMini').classList.add('on'); $('mLife').classList.remove('on'); marker.visible = false; };
+$('toggle').onclick = () => $('panel').classList.toggle('closed');
+
+// クリック：座標読み取り／ダブルクリック：立ち位置指定
+const ray = new THREE.Raycaster();
+function hitAt(e) {
+  const r = renderer.domElement.getBoundingClientRect();
+  ray.setFromCamera(new THREE.Vector2((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1), camera);
+  return ray.intersectObjects(layers.filter(l => l.mesh.visible).map(l => l.mesh))[0];
+}
+renderer.domElement.addEventListener('click', e => {
+  if (!pickMode || !origin) return;
+  const h = hitAt(e); if (!h) return;
+  const p = model.worldToLocal(h.point.clone());
+  const X = origin.x - p.z, Y = origin.y + p.x, Z = origin.z + p.y;
+  info(`${h.object.name}　X=${X.toFixed(3)}　Y=${Y.toFixed(3)}　Z=${Z.toFixed(3)}`);
+});
+renderer.domElement.addEventListener('dblclick', e => {
+  if (!origin) return;
+  const h = hitAt(e); if (!h) return;
+  setStart(model.worldToLocal(h.point.clone()));
+  if (vrMode !== 'life') $('mLife').click();
+  info(`VRの立ち位置を「${h.object.name}」上に設定しました`);
+});
+
+// ---------- ファイル読み込み ----------
+async function readFiles(files) {
+  const list = [];
+  for (const f of files) list.push({ name: f.name, text: await f.text() });
+  await loadTexts(list);
+}
+$('file').onchange = e => readFiles([...e.target.files]);
+$('sample').onclick = async () => {
+  info('読み込み中…');
+  try { const t = await (await fetch('A2.xml')).text(); await loadTexts([{ name: 'A2現場', text: t }]); }
+  catch { info('A2.xml が見つかりません（index.html と同じフォルダに置いてください）'); }
+};
+addEventListener('dragover', e => { e.preventDefault(); $('drop').style.display = 'flex'; });
+addEventListener('dragleave', e => { if (!e.relatedTarget) $('drop').style.display = 'none'; });
+addEventListener('drop', e => { e.preventDefault(); $('drop').style.display = 'none'; readFiles([...e.dataTransfer.files]); });
+
+// ---------- VR ----------
+const EYE = 1.6;
+renderer.xr.addEventListener('sessionstart', () => {
+  controls.enabled = false;
+  marker.visible = false;
+  applyWorld(true);
+  if (vrMode === 'life' && startPoint) {
+    const ex = exaggeration();
+    dolly.position.set(startPoint.x, startPoint.y * ex, startPoint.z);
+  } else dolly.position.set(0, 0, 0);
+  dolly.rotation.set(0, 0, 0);
+  camera.position.set(0, 0, 0); camera.rotation.set(0, 0, 0);
+  scene.fog.near = 200; scene.fog.far = 2000;
+});
+renderer.xr.addEventListener('sessionend', () => {
+  controls.enabled = true;
+  marker.visible = vrMode === 'life' && !!startPoint;
+  dolly.position.set(0, 0, 0); dolly.rotation.set(0, 0, 0);
+  applyWorld(false); fit();
+});
+
+let snapCool = 0;
+function vrMove(dt) {
+  const session = renderer.xr.getSession(); if (!session) return;
+  const speed = vrMode === 'life' ? 4 : 0.6; // m/s
+  for (const src of session.inputSources) {
+    const gp = src.gamepad; if (!gp) continue;
+    const ax = gp.axes.length >= 4 ? [gp.axes[2], gp.axes[3]] : [gp.axes[0], gp.axes[1]];
+    const dz = v => Math.abs(v) < 0.15 ? 0 : v;
+    const x = dz(ax[0]), y = dz(ax[1]);
+    if (src.handedness === 'left') {
+      if (!x && !y) continue;
+      const dir = new THREE.Vector3(); renderer.xr.getCamera().getWorldDirection(dir);
+      dir.y = 0; dir.normalize();
+      const side = new THREE.Vector3().crossVectors(dir, new THREE.Vector3(0, 1, 0));
+      dolly.position.addScaledVector(dir, -y * speed * dt).addScaledVector(side, x * speed * dt);
+    } else if (src.handedness === 'right') {
+      snapCool -= dt;
+      if (Math.abs(x) > 0.6 && snapCool <= 0) { dolly.rotation.y -= Math.sign(x) * Math.PI / 6; snapCool = 0.35; }
+      if (y) dolly.position.y -= y * speed * 0.5 * dt;
+    }
+  }
+}
+
+// ---------- ループ ----------
+const clock = new THREE.Clock();
+renderer.setAnimationLoop(() => {
+  const dt = Math.min(clock.getDelta(), 0.1);
+  if (renderer.xr.isPresenting) vrMove(dt); else controls.update();
+  renderer.render(scene, camera);
+});
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+// ?file=xxx.xml で自動読み込み
+const q = new URLSearchParams(location.search).get('file');
+if (q) fetch(q).then(r => r.text()).then(t => loadTexts([{ name: q, text: t }]));
+</script>
+</body>
+</html>
