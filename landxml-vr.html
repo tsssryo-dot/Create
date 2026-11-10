@@ -39,9 +39,10 @@
   <div class="body">
     <div class="row">
       <label class="btn" style="text-align:center">LandXMLを開く<input id="file" type="file" accept=".xml,.landxml" multiple hidden></label>
-      <button id="sample">A2現場</button>
+      <button class="sample" data-file="A2.xml">A2現場</button>
+      <button class="sample" data-file="amitsu.xml">あみつ</button>
     </div>
-    <div class="hint">ファイルを画面にドラッグしても開けます（複数可：現況＋設計など）</div>
+    <div class="hint">ファイルを画面にドラッグしても開けます。<br>新しく開くと前の表示は消えます（現況＋設計などは同時に選ぶと重ねて表示）</div>
 
     <h2>表示</h2>
     <div class="row"><label>高さ強調 <b id="exv">1.0</b>倍<input id="ex" type="range" min="1" max="5" step="0.5" value="1"></label></div>
@@ -156,7 +157,14 @@ function parseLandXML(text, fileName) {
         const ids = f.textContent.trim().split(/\s+/);
         if (ids.length >= 3) faces.push(ids);
       }
-      if (faces.length) out.push({ group: `${gname}`, file: fileName, name: s.getAttribute('name') || 'Surface', pts, faces });
+      // SiTE-STRUCTURE等の色情報（Feature name="Colors"）があれば使う
+      let color = null;
+      for (const ft of s.getElementsByTagName('Feature')) {
+        if (ft.getAttribute('name') !== 'Colors') continue;
+        const pr = ft.getElementsByTagName('Property')[0];
+        if (pr) { const c = pr.getAttribute('value').trim().split(/\s+/).map(Number); color = `rgb(${c[0]},${c[1]},${c[2]})`; }
+      }
+      if (faces.length) out.push({ group: `${gname}`, file: fileName, name: s.getAttribute('name') || 'Surface', pts, faces, color });
     }
   }
   return out;
@@ -176,7 +184,8 @@ function buildMesh(surf) {
   geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   geo.computeVertexNormals();
   geo.computeBoundingBox();
-  const [color, opacity] = styleFor(surf.name, geo.boundingBox);
+  let [color, opacity] = styleFor(surf.name, geo.boundingBox);
+  if (surf.color) color = '#' + new THREE.Color(surf.color).getHexString();
   const mat = new THREE.MeshStandardMaterial({
     color, side: THREE.DoubleSide, flatShading: true, roughness: .9, metalness: 0,
     transparent: opacity < 1, opacity, depthWrite: opacity >= 1, wireframe: wire
@@ -186,6 +195,11 @@ function buildMesh(surf) {
   return mesh;
 }
 
+function clearAll() {
+  for (const l of layers) { model.remove(l.mesh); l.mesh.geometry.dispose(); l.mesh.material.dispose(); }
+  layers.length = 0;
+  origin = null; startPoint = null; marker.visible = false;
+}
 async function loadTexts(list) {
   let surfs = [];
   for (const { text, name } of list) {
@@ -193,7 +207,8 @@ async function loadTexts(list) {
     catch (e) { alert(`${name}: ${e.message}`); }
   }
   if (!surfs.length) { info('TIN面（Surface）が見つかりませんでした'); return; }
-  if (!origin) {
+  clearAll();
+  {
     // 最初のファイルの範囲中心を原点にする（平面直角座標のままだと桁が大きすぎるため）
     let mn = [Infinity, Infinity, Infinity], mx = [-Infinity, -Infinity, -Infinity];
     for (const s of surfs) for (const p of s.pts.values()) for (let i = 0; i < 3; i++) { mn[i] = Math.min(mn[i], p[i]); mx[i] = Math.max(mx[i], p[i]); }
@@ -329,11 +344,14 @@ async function readFiles(files) {
   await loadTexts(list);
 }
 $('file').onchange = e => readFiles([...e.target.files]);
-$('sample').onclick = async () => {
+document.querySelectorAll('.sample').forEach(b => b.onclick = async () => {
+  const f = b.dataset.file;
   info('読み込み中…');
-  try { const t = await (await fetch('A2.xml')).text(); await loadTexts([{ name: 'A2現場', text: t }]); }
-  catch { info('A2.xml が見つかりません（index.html と同じフォルダに置いてください）'); }
-};
+  try {
+    const r = await fetch(f); if (!r.ok) throw 0;
+    await loadTexts([{ name: b.textContent, text: await r.text() }]);
+  } catch { info(`${f} が見つかりません（このページと同じ場所に置いてください）`); }
+});
 addEventListener('dragover', e => { e.preventDefault(); $('drop').style.display = 'flex'; });
 addEventListener('dragleave', e => { if (!e.relatedTarget) $('drop').style.display = 'none'; });
 addEventListener('drop', e => { e.preventDefault(); $('drop').style.display = 'none'; readFiles([...e.dataTransfer.files]); });
